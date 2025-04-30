@@ -189,7 +189,7 @@ def plot_evaluation_metrics(original_metrics, finetuned_metrics):
     except:
         print("警告: 无法设置中文字体，图表中的中文可能无法正确显示")
     
-    metrics = ['准确率 (Accuracy)', 'RMSE', 'MAE']
+    metrics = ['overload_accuracy)', 'RMSE', 'MAE']
     original_values = [original_metrics['accuracy'], original_metrics['rmse'], original_metrics['mae']]
     finetuned_values = [finetuned_metrics['accuracy'], finetuned_metrics['rmse'], finetuned_metrics['mae']]
     
@@ -197,8 +197,8 @@ def plot_evaluation_metrics(original_metrics, finetuned_metrics):
     width = 0.35  # 柱状图宽度
     
     fig, ax = plt.subplots(figsize=(12, 8))
-    rects1 = ax.bar(x - width/2, original_values, width, label='原始模型', color='skyblue')
-    rects2 = ax.bar(x + width/2, finetuned_values, width, label='微调后模型', color='lightgreen')
+    rects1 = ax.bar(x - width/2, original_values, width, label='base', color='skyblue')
+    rects2 = ax.bar(x + width/2, finetuned_values, width, label='finetuned', color='lightgreen')
     
     # 添加标题和坐标轴标签
     ax.set_title('原始模型与微调模型性能对比', fontsize=16)
@@ -226,49 +226,6 @@ def plot_evaluation_metrics(original_metrics, finetuned_metrics):
     # 保存图表
     plt.savefig('model_comparison.png', dpi=300, bbox_inches='tight')
     print("评估指标柱状图已保存为 model_comparison.png")
-    
-    # 计算性能改进
-    improvement_metrics = ['准确率提升 (%)', 'RMSE降低 (%)', 'MAE降低 (%)']
-    
-    # 计算提升百分比
-    accuracy_improvement = ((finetuned_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
-    rmse_improvement = ((original_metrics['rmse'] - finetuned_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
-    mae_improvement = ((original_metrics['mae'] - finetuned_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
-    
-    improvement_values = [accuracy_improvement, rmse_improvement, mae_improvement]
-    
-    # 绘制性能改进图表
-    fig2, ax2 = plt.subplots(figsize=(12, 8))
-    bars = ax2.bar(improvement_metrics, improvement_values, color=['green', 'green', 'green'])
-    
-    # 为负值设置红色（表示性能下降）
-    for i, v in enumerate(improvement_values):
-        if v < 0:
-            bars[i].set_color('red')
-    
-    ax2.set_title('微调模型性能提升百分比', fontsize=16)
-    ax2.set_ylabel('提升百分比 (%)', fontsize=14)
-    
-    # 在柱状图上添加数值标签
-    for i, v in enumerate(improvement_values):
-        ax2.text(i, v + (5 if v >= 0 else -5), 
-                 '{:.2f}%'.format(v),
-                 ha='center', 
-                 va='bottom' if v >= 0 else 'top',
-                 fontsize=12)
-    
-    # 添加一条0%的参考线
-    ax2.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-    
-    # 调整布局
-    fig2.tight_layout()
-    
-    # 保存图表
-    plt.savefig('performance_improvement.png', dpi=300, bbox_inches='tight')
-    print("性能提升柱状图已保存为 performance_improvement.png")
-    
-    # 显示图表（可选，如果在服务器环境运行可能需要注释掉）
-    # plt.show()
 
 def main():
     # 配置参数
@@ -369,11 +326,6 @@ def main():
                 },
                 "predictions": finetuned_predictions,
                 "parsed_predictions": [(int(o), float(p)) for o, p in finetuned_parsed]
-            },
-            "improvements": {
-                "accuracy": float(accuracy_improvement),
-                "rmse": float(rmse_improvement),
-                "mae": float(mae_improvement)
             }
         }
         json.dump(json_results, f, ensure_ascii=False, indent=2)
