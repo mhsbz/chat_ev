@@ -108,7 +108,7 @@ Please determine the current overload condition and power consumption (kW) based
 
 这是原始模型和微调后模型指标对比：
 
-| 模型 | 过载预测准确率 | 功率预测RMSE (kW) | 功率预测MAE (kW) |
+| 模型 | 电网状态预测准确率 | 功率预测RMSE (kW) | 功率预测MAE (kW) |
 |------|----------------|-------------------|------------------|
 | 原始模型 | 29.3% | 58.219 | 20.287 |
 | 少样本微调 | 71.6% | 4.644 | 3.772 |
