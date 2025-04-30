@@ -189,7 +189,7 @@ def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metric
     except:
         print("警告: 无法设置中文字体，图表中的中文可能无法正确显示")
     
-    metrics = ['overload_accuracy)', 'RMSE', 'MAE']
+    metrics = ['overload_accuracy', 'RMSE', 'MAE']
     original_values = [original_metrics['accuracy'], original_metrics['rmse'], original_metrics['mae']]
     few_shot_values = [few_shot_metrics['accuracy'], few_shot_metrics['rmse'], few_shot_metrics['mae']]
     finetuned_values = [finetuned_metrics['accuracy'], finetuned_metrics['rmse'], finetuned_metrics['mae']]
