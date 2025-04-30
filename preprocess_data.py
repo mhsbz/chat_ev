@@ -9,23 +9,25 @@ df = pd.read_csv("original_data/smart_grid_dataset.csv")
 print(f"成功读取数据，共 {len(df)} 条记录")
 
 # 创建提示模板
+system_prompt = "You are a smart grid security management expert, skilled in understanding and predicting grid security conditions"
+
 prompt_template = """
-你是一个智能电网安全管理专家，擅长理解和预测电网安全状况。
-当前天气温度为 {temperature} 摄氏度，湿度为 {humidity}。
-给定以下历史充电数据时间序列，
-电压 (过去|当前) = {voltage_past} | {voltage_current} V;
-电流 (过去|当前) = {current_past} | {current_current} A;
-功率因数 (过去|当前) = {power_factor_past} | {power_factor_current};
-无功功率 (过去|当前) = {reactive_power_past} | {reactive_power_current}kVAR;
-电压波动 (过去|当前) = {voltage_fluctuation_past} | {voltage_fluctuation_current}%;
-电价 (过去|当前) = {electricity_price_past} | {electricity_price_current};
-过载历史状态 = {overload_history} (0表示否，1表示是);
-变压器故障状态 (过去|当前) = {transformer_fault_past} | {transformer_fault_current} (0表示正常，1表示故障);
-过去1小时的功率消耗 = {power_consumption_past} kW.
-请注意!
-你的任务是确定当前的过载状态 (0表示否，1表示是) 并预测功率消耗(kW)，通过分析给定信息并利用你的常识。
-在你的回答中，只需给出你的判断和预测值。
-### 回答：
+Please determine the current overload condition and power consumption (kW) based on the following information.
+The current weather temperature is {temperature} Celsius, and humidity is {humidity}.
+Given the following historical charging data time series:
+Voltage (past|current) = {voltage_past} | {voltage_current} V;
+Current (past|current) = {current_past} | {current_current} A;
+Power Factor (past|current) = {power_factor_past} | {power_factor_current};
+Reactive Power (past|current) = {reactive_power_past} | {reactive_power_current} kVAR;
+Voltage Fluctuation (past|current) = {voltage_fluctuation_past} | {voltage_fluctuation_current}%;
+Electricity Price (past|current) = {electricity_price_past} | {electricity_price_current};
+Overload history status = {overload_history} (0 means no, 1 means yes);
+Transformer fault status (past|current) = {transformer_fault_past} | {transformer_fault_current} (0 means normal, 1 means faulty);
+Power consumption in the past 1 hour = {power_consumption_past} kW.
+Please note!
+Your task is to determine the current overload condition (0 means no, 1 means yes) and predict power consumption (kW) by analyzing the given information and using your common sense.
+In your answer, just provide your determination and predicted value.
+### Answer:
 """
 
 def prepare_sft_data(df, lookback=4):
@@ -100,6 +102,10 @@ def prepare_sft_data(df, lookback=4):
         sample = {
             "messages": [
                 {
+                    "role": "system",
+                    "content": system_prompt.strip()
+                },
+                {
                     "role": "user",
                     "content": user_prompt.strip()
                 },
@@ -120,12 +126,16 @@ sft_data = prepare_sft_data(df)
 print(f"成功生成 {len(sft_data)} 条SFT训练样本")
 
 # 保存为JSON文件
-with open("sft_training_data.json", "w") as f:
-    json.dump(sft_data, f, ensure_ascii=False,indent=2)
+with open("sft_data_train.json", "w") as f:
+    json.dump(sft_data[:49000], f, ensure_ascii=False,indent=2)
 
-print("SFT训练数据已保存到 sft_training_data.json")
+with open("sft_data_test.json", "w") as f:
+    json.dump(sft_data[49000:], f, ensure_ascii=False,indent=2)
+
+print("SFT训练数据已保存到 sft_data_train.json")
+print("SFT测试数据已保存到 sft_data_test.json")
 
 # 打印示例
 print("\n示例SFT数据:")
-print("用户提示:", sft_data[0]["messages"][0]["content"])
-print("\n助手回答:", sft_data[0]["messages"][1]["content"])
+print("用户提示:", sft_data[0]["messages"][1]["content"])
+print("\n助手回答:", sft_data[0]["messages"][2]["content"])

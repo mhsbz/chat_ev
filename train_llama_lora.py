@@ -1,110 +1,106 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-import json
-import os
 import torch
-from datasets import Dataset
-from peft import LoraConfig, TaskType
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    TrainingArguments,
-)
-from trl import SFTTrainer
-
-def load_dataset_from_json(file_path):
-    """从JSON文件加载数据集"""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    
-    # 转换为Hugging Face Dataset格式
-    formatted_data = []
-    for item in data:
-        formatted_data.append({
-            "messages": item["messages"]
-        })
-    
-    return Dataset.from_list(formatted_data)
+from datasets import load_dataset
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
+from trl import SFTTrainer,SFTConfig
+from peft import LoraConfig, get_peft_model
 
 def main():
-    # 模型参数
-    model_name = "meta-llama/Meta-Llama-3.2-1B-Instruct"
-    dataset_path = "sft_training_data.json"
-    output_dir = "./llama-3.2-1b-ev-lora"
-    max_seq_length = 2048
-    
-    # 打印训练配置
-    print(f"加载模型: {model_name}")
-    print(f"加载数据集: {dataset_path}")
-    
-    # 加载分词器
+    # 加载模型和分词器
+    model_name = "meta-llama/Llama-3.2-1B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "right"
-    
-    # 加载基础模型
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        quantization_config=bnb_config,
-        device_map="auto",
-        trust_remote_code=True
+        trust_remote_code=True,
+        torch_dtype=torch.float16,
+    )
+
+    # 配置 LoRA
+    lora_config = LoraConfig(
+        r=64,
+        lora_alpha=16,
+        target_modules=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+            "embed_tokens"
+            ],
+        lora_dropout=0.2,
+        bias="none",
+        task_type="CAUSAL_LM"
     )
     
-    # 配置LoRA
-    peft_config = LoraConfig(
-        task_type=TaskType.CAUSAL_LM,
-        inference_mode=False,
-        r=16,
-        lora_alpha=32,
-        lora_dropout=0.05,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
-    )
+    # 应用 LoRA
+    model = get_peft_model(model, lora_config)
+
+    # 检测CUDA可用性
+    if torch.cuda.is_available():
+        model = model.cuda()
+        print("检测到CUDA设备，已启用GPU加速")
+    else:
+        print("未检测到CUDA设备，使用CPU训练")
+
+    # 加载数据集
+    # 加载完整数据集
+    full_dataset = load_dataset('json', data_files='sft_training_data.json', split='train')
     
-    # 加载训练数据集
-    dataset = load_dataset_from_json(dataset_path)
-    print(f"加载数据集成功，包含 {len(dataset)} 个训练样本")
-    
-    # 设置训练参数
-    training_arguments = TrainingArguments(
-        output_dir=output_dir,
-        num_train_epochs=3.0,
+    # 随机切分数据集为训练集(80%)、验证集(10%)和测试集(10%)
+    splits = full_dataset.train_test_split(test_size=0.1, shuffle=True, seed=42)
+    train_dataset = splits['train']
+    valid_dataset = splits['test']
+
+    # 训练参数
+    training_args = SFTConfig(
+        output_dir="checkpoints",
+        num_train_epochs=1,
+        max_grad_norm=0.3,
         per_device_train_batch_size=4,
-        gradient_accumulation_steps=2,
-        learning_rate=2e-4,
-        weight_decay=0.001,
-        warmup_ratio=0.03,
+        gradient_accumulation_steps=4,
+        per_gpu_eval_batch_size=4,
+        eval_accumulation_steps=4,
+        learning_rate=6e-5,
+        bf16=torch.cuda.is_available(),  # 自动根据CUDA可用性启用bf16
         logging_steps=10,
-        evaluation_strategy="steps",
+        eval_strategy="steps",
+        eval_steps=100,
         save_strategy="steps",
-        eval_steps=50,
         save_steps=100,
-        save_total_limit=3,
-        fp16=True,
-        report_to="tensorboard",
-        remove_unused_columns=False,
+        save_total_limit=10,
+        optim="adamw_torch",
+        warmup_ratio=0.1,
+        ddp_find_unused_parameters=False,
+        report_to="wandb",
     )
-    
-    # 配置SFT训练器
+
+    # 初始化 SFTTrainer
     trainer = SFTTrainer(
         model=model,
-        args=training_arguments,
-        train_dataset=dataset,
-        eval_dataset=dataset.select(range(min(100, len(dataset)))),
-        peft_config=peft_config,
-        tokenizer=tokenizer,
-        dataset_text_field="messages",
-        max_seq_length=max_seq_length,
+        train_dataset=train_dataset,
+        eval_dataset=valid_dataset,
+        args=training_args,
+        # tokenizer=tokenizer,
+        # packing=False,
+        # max_seq_length=2048,
     )
-    
+
     # 开始训练
-    print("开始训练...")
     trainer.train()
     
-    # 保存模型
-    print(f"训练完成，保存模型到 {output_dir}")
-    trainer.save_model(output_dir)
+    # 合并LoRA权重到基础模型
+    print("正在合并LoRA权重到基础模型...")
+    # 指定adapter和base_model的保存路径
+    model = model.merge_and_unload()
     
+    # 保存合并后的模型和tokenizer
+    output_dir = "llama_finetuned"
+    print(f"正在保存完整模型到 {output_dir}...")
+    model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+    print("模型保存完成！")
+
+### CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch --num_processes 4 train_llama_lora.py
 if __name__ == "__main__":
     main()
