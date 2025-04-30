@@ -234,17 +234,14 @@ def main():
     # 配置参数
     original_model_name = "meta-llama/Llama-3.2-1B-Instruct"  # 与训练脚本中使用的模型一致
     few_shot_model_adapter_path = "checkpoints/checkpoint-50"  # 少样本微调模型的保存路径
-    finetuned_model_adapter_path = "checkpoints/checkpoint-625"  # 微调模型的保存路径
-    test_data_path = "original_data/smart_grid_dataset.csv"  # 原始数据集路径
+    finetuned_model_adapter_path = "checkpoints/checkpoint-300"  # 微调模型的保存路径
     json_test_data_path = "sft_data_test.json"  # JSON测试数据路径
-    use_json_test = True  # 设置为True表示使用JSON测试数据
     
     # 打印评估配置
     print("=== 电网安全预测模型评估 ===")
     print(f"原始模型: {original_model_name}")
     print(f"少样本微调模型适配器: {few_shot_model_adapter_path}")
     print(f"完全微调模型适配器: {finetuned_model_adapter_path}")
-    print(f"测试数据: {'JSON测试数据' if use_json_test else '原始数据集随机划分'}")
     
 
     test_data = load_json_test_data(json_test_data_path)

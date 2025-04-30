@@ -59,7 +59,7 @@ python preprocess_data.py
 ### 模型训练
 
 ```bash
-python train_model.py
+python train_llama_lora.py
 ```
 
 ### 模型评估
@@ -76,6 +76,7 @@ chat_ev/
 │   └── smart_grid_dataset.csv
 ├── preprocess_data.py       # 数据预处理脚本
 ├── train_model.py           # 模型训练脚本 
+├── llama_inference.py       # 模型推理脚本 
 ├── evaluate_model.py        # 模型评估脚本
 ├── sft_data_train.json      # 生成的训练数据
 ├── sft_data_test.json       # 生成的测试数据
@@ -86,29 +87,31 @@ chat_ev/
 
 示例提示格式:
 
+SYSTEM_PROMPT:
 ```
-Please determine the current overload condition and power consumption (kW) based on the following information.
-The current weather temperature is 25.5 Celsius, and humidity is 65.2.
-Given the following historical charging data time series:
-Voltage (past|current) = [220.1, 219.8, 221.2, 220.5] | 221.3 V;
-Current (past|current) = [30.2, 32.1, 31.5, 33.0] | 34.2 A;
-...
+You are a smart grid security management expert, skilled in understanding and predicting grid security conditions
 ```
 
-## 贡献指南
+USER_PROMPT:
+```
+Please determine the current overload condition and power consumption (kW) based on the following information.\nThe current weather temperature is 19.1913 Celsius, and humidity is 38.3004.\nGiven the following historical charging data time series:\nVoltage (past|current) = [236.9291, 239.9761, 224.4519, 230.5807] | 234.5784 V;\nCurrent (past|current) = [24.5292, 39.2458, 19.6493, 41.844] | 21.2455 A;\nPower Factor (past|current) = [0.913, 0.9672, 0.8311, 0.9675] | 0.8326;\nReactive Power (past|current) = [1.174, 3.4639, 0.8904, 1.0849] | 1.6016 kVAR;\nVoltage Fluctuation (past|current) = [3.8385, 4.0509, 2.8421, -0.286] | -2.6559%;\nElectricity Price (past|current) = [0.2478, 0.4932, 0.1003, 0.4814] | 0.1806;\nOverload history status = [0, 0, 0, 0] (0 means no, 1 means yes);\nTransformer fault status (past|current) = [0, 0, 0, 0] | 0 (0 means normal, 1 means faulty);\nPower consumption in the past 1 hour = [5.8117, 9.4181, 4.4103, 9.6484] kW.\nPlease note!\nYour task is to determine the current overload condition (0 means no, 1 means yes) and predict power consumption (kW) by analyzing the given information and using your common sense.\nIn your answer, just provide your determination and predicted value.\n### Answer:
+```
 
-1. Fork 本仓库
-2. 创建您的特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交您的更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 打开一个 Pull Request
+### 微调说明
 
-## 联系方式
+- 机器: RTX 5880 48G x 4
+- 原始模型: meta-llama/Llama-3.2-1B-Instruct
+- 微调数据: 40000条样本
+- 微调方法: 采用LoRA微调方法做SFT微调
 
-如有任何问题或建议，请通过以下方式联系我们:
-- 邮箱: your-email@example.com
-- GitHub Issues: [https://github.com/your-username/chat_ev/issues](https://github.com/your-username/chat_ev/issues)
+### 评测指标
 
-## 许可证
+这是原始模型和微调后模型指标对比：
 
-本项目采用 MIT 许可证 - 详情请见 [LICENSE](LICENSE) 文件
+| 模型 | 过载预测准确率 | 功率预测RMSE (kW) | 功率预测MAE (kW) |
+|------|----------------|-------------------|------------------|
+| 原始模型 | 29.3% | 58.219 | 20.287 |
+| 少样本微调 | 71.6% | 4.644 | 3.772 |
+| 全样本微调 | 90.05% | 0.102 | 0.052 |
+
+*注：RMSE (均方根误差) 和 MAE (平均绝对误差) 越低表示预测越准确*

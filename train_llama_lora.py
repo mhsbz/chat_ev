@@ -45,7 +45,7 @@ def main():
 
     # 加载数据集
     # 加载完整数据集
-    full_dataset = load_dataset('json', data_files='sft_training_data.json', split='train')
+    full_dataset = load_dataset('json', data_files='sft_data_train.json', split='train')
     
     # 随机切分数据集为训练集(80%)、验证集(10%)和测试集(10%)
     splits = full_dataset.train_test_split(test_size=0.1, shuffle=True, seed=42)
@@ -65,9 +65,10 @@ def main():
         bf16=torch.cuda.is_available(),  # 自动根据CUDA可用性启用bf16
         logging_steps=10,
         eval_strategy="steps",
-        eval_steps=100,
+        eval_steps=50,
         save_strategy="steps",
-        save_steps=100,
+        save_steps=50,
+        max_steps=300,
         save_total_limit=10,
         optim="adamw_torch",
         warmup_ratio=0.1,
