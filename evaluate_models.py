@@ -176,7 +176,7 @@ def evaluate_model(model_name, tokenizer_name, test_prompts, test_labels, is_pef
     
     return metrics, predictions, parsed_predictions
 
-def plot_evaluation_metrics(original_metrics, finetuned_metrics):
+def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metrics):
     """
     绘制评估指标的柱状图对比
     """
@@ -191,14 +191,16 @@ def plot_evaluation_metrics(original_metrics, finetuned_metrics):
     
     metrics = ['overload_accuracy)', 'RMSE', 'MAE']
     original_values = [original_metrics['accuracy'], original_metrics['rmse'], original_metrics['mae']]
+    few_shot_values = [few_shot_metrics['accuracy'], few_shot_metrics['rmse'], few_shot_metrics['mae']]
     finetuned_values = [finetuned_metrics['accuracy'], finetuned_metrics['rmse'], finetuned_metrics['mae']]
     
     x = np.arange(len(metrics))  # 标签位置
-    width = 0.35  # 柱状图宽度
+    width = 0.25  # 柱状图宽度
     
-    fig, ax = plt.subplots(figsize=(12, 8))
-    rects1 = ax.bar(x - width/2, original_values, width, label='base', color='skyblue')
-    rects2 = ax.bar(x + width/2, finetuned_values, width, label='finetuned', color='lightgreen')
+    fig, ax = plt.subplots(figsize=(14, 10))
+    rects1 = ax.bar(x - width, original_values, width, label='base', color='skyblue')
+    rects2 = ax.bar(x, few_shot_values, width, label='few-shot (checkpoint-50)', color='orange')
+    rects3 = ax.bar(x + width, finetuned_values, width, label='finetuned (checkpoint-625)', color='lightgreen')
     
     # 添加标题和坐标轴标签
     ax.set_title('原始模型与微调模型性能对比', fontsize=16)
@@ -219,6 +221,7 @@ def plot_evaluation_metrics(original_metrics, finetuned_metrics):
     
     autolabel(rects1)
     autolabel(rects2)
+    autolabel(rects3)
     
     # 调整布局
     fig.tight_layout()
@@ -230,6 +233,7 @@ def plot_evaluation_metrics(original_metrics, finetuned_metrics):
 def main():
     # 配置参数
     original_model_name = "meta-llama/Llama-3.2-1B-Instruct"  # 与训练脚本中使用的模型一致
+    few_shot_model_adapter_path = "checkpoints/checkpoint-50"  # 少样本微调模型的保存路径
     finetuned_model_adapter_path = "checkpoints/checkpoint-625"  # 微调模型的保存路径
     test_data_path = "original_data/smart_grid_dataset.csv"  # 原始数据集路径
     json_test_data_path = "sft_data_test.json"  # JSON测试数据路径
@@ -238,7 +242,8 @@ def main():
     # 打印评估配置
     print("=== 电网安全预测模型评估 ===")
     print(f"原始模型: {original_model_name}")
-    print(f"微调模型适配器: {finetuned_model_adapter_path}")
+    print(f"少样本微调模型适配器: {few_shot_model_adapter_path}")
+    print(f"完全微调模型适配器: {finetuned_model_adapter_path}")
     print(f"测试数据: {'JSON测试数据' if use_json_test else '原始数据集随机划分'}")
     
 
@@ -255,7 +260,17 @@ def main():
         test_labels
     )
     
-    # 评估微调后的模型
+    # 评估少样本微调模型 (checkpoint-50)
+    few_shot_metrics, few_shot_predictions, few_shot_parsed = evaluate_model(
+        original_model_name, 
+        original_model_name, 
+        test_prompts, 
+        test_labels, 
+        is_peft=True, 
+        adapter_path=few_shot_model_adapter_path
+    )
+    
+    # 评估完全微调后的模型 (checkpoint-625)
     finetuned_metrics, finetuned_predictions, finetuned_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
@@ -272,20 +287,35 @@ def main():
     print(f"  功率消耗RMSE: {original_metrics['rmse']:.4f}")
     print(f"  功率消耗MAE: {original_metrics['mae']:.4f}")
     
-    print("\n微调后模型:")
+    print("\n少样本微调模型 (checkpoint-50):")
+    print(f"  过载状态准确率: {few_shot_metrics['accuracy']:.4f}")
+    print(f"  功率消耗RMSE: {few_shot_metrics['rmse']:.4f}")
+    print(f"  功率消耗MAE: {few_shot_metrics['mae']:.4f}")
+    
+    print("\n完全微调模型 (checkpoint-625):")
     print(f"  过载状态准确率: {finetuned_metrics['accuracy']:.4f}")
     print(f"  功率消耗RMSE: {finetuned_metrics['rmse']:.4f}")
     print(f"  功率消耗MAE: {finetuned_metrics['mae']:.4f}")
     
-    # 性能提升百分比
-    accuracy_improvement = ((finetuned_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
-    rmse_improvement = ((original_metrics['rmse'] - finetuned_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
-    mae_improvement = ((original_metrics['mae'] - finetuned_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    # 少样本模型相对于原始模型的性能提升百分比
+    few_shot_accuracy_improvement = ((few_shot_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    few_shot_rmse_improvement = ((original_metrics['rmse'] - few_shot_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
+    few_shot_mae_improvement = ((original_metrics['mae'] - few_shot_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
     
-    print("\n性能提升:")
-    print(f"  过载状态准确率提升: {accuracy_improvement:.2f}%")
-    print(f"  功率消耗RMSE降低: {rmse_improvement:.2f}%")
-    print(f"  功率消耗MAE降低: {mae_improvement:.2f}%")
+    # 完全微调模型相对于原始模型的性能提升百分比
+    finetuned_accuracy_improvement = ((finetuned_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    finetuned_rmse_improvement = ((original_metrics['rmse'] - finetuned_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
+    finetuned_mae_improvement = ((original_metrics['mae'] - finetuned_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    
+    print("\n少样本微调模型性能提升:")
+    print(f"  过载状态准确率提升: {few_shot_accuracy_improvement:.2f}%")
+    print(f"  功率消耗RMSE降低: {few_shot_rmse_improvement:.2f}%")
+    print(f"  功率消耗MAE降低: {few_shot_mae_improvement:.2f}%")
+    
+    print("\n完全微调模型性能提升:")
+    print(f"  过载状态准确率提升: {finetuned_accuracy_improvement:.2f}%")
+    print(f"  功率消耗RMSE降低: {finetuned_rmse_improvement:.2f}%")
+    print(f"  功率消耗MAE降低: {finetuned_mae_improvement:.2f}%")
     
     # 保存评估结果
     results = {
@@ -294,15 +324,27 @@ def main():
             "predictions": original_predictions,
             "parsed_predictions": original_parsed
         },
+        "few_shot_model": {
+            "metrics": few_shot_metrics,
+            "predictions": few_shot_predictions,
+            "parsed_predictions": few_shot_parsed
+        },
         "finetuned_model": {
             "metrics": finetuned_metrics,
             "predictions": finetuned_predictions,
             "parsed_predictions": finetuned_parsed
         },
         "improvements": {
-            "accuracy": accuracy_improvement,
-            "rmse": rmse_improvement,
-            "mae": mae_improvement
+            "few_shot": {
+                "accuracy": few_shot_accuracy_improvement,
+                "rmse": few_shot_rmse_improvement,
+                "mae": few_shot_mae_improvement
+            },
+            "finetuned": {
+                "accuracy": finetuned_accuracy_improvement,
+                "rmse": finetuned_rmse_improvement,
+                "mae": finetuned_mae_improvement
+            }
         }
     }
     
@@ -317,6 +359,15 @@ def main():
                 },
                 "predictions": original_predictions,
                 "parsed_predictions": [(int(o), float(p)) for o, p in original_parsed]
+            },
+            "few_shot_model": {
+                "metrics": {
+                    "accuracy": float(few_shot_metrics["accuracy"]),
+                    "rmse": float(few_shot_metrics["rmse"]),
+                    "mae": float(few_shot_metrics["mae"])
+                },
+                "predictions": few_shot_predictions,
+                "parsed_predictions": [(int(o), float(p)) for o, p in few_shot_parsed]
             },
             "finetuned_model": {
                 "metrics": {
@@ -333,7 +384,7 @@ def main():
     print("\n评估结果已保存到 evaluation_results.json")
     
     # 绘制评估指标柱状图
-    plot_evaluation_metrics(original_metrics, finetuned_metrics)
+    plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metrics)
 
 if __name__ == "__main__":
     main()
