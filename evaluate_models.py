@@ -113,7 +113,7 @@ def parse_predictions(predictions):
 
 def calculate_metrics(true_values, predicted_values):
     """
-    计算评估指标：RMSE和MAE
+    计算评估指标：准确率、召回率、F1分数、RMSE、MAE和R平方分数
     """
     # 提取过载状态和功率消耗
     y_true_overload = np.array([x[0] for x in true_values])
@@ -125,14 +125,54 @@ def calculate_metrics(true_values, predicted_values):
     # 计算过载状态的准确率
     accuracy = np.mean(y_true_overload == y_pred_overload)
     
+    # 计算过载状态的召回率和F1分数
+    # 过载状态为1的情况下的召回率（真正例 / (真正例 + 假负例)）
+    true_positives = np.sum((y_true_overload == 1) & (y_pred_overload == 1))
+    false_negatives = np.sum((y_true_overload == 1) & (y_pred_overload == 0))
+    false_positives = np.sum((y_true_overload == 0) & (y_pred_overload == 1))
+    
+    # 避免除零错误
+    if true_positives + false_negatives > 0:
+        recall = true_positives / (true_positives + false_negatives)
+    else:
+        recall = 0.0
+    
+    # 计算精确率 (真正例 / (真正例 + 假正例))
+    if true_positives + false_positives > 0:
+        precision = true_positives / (true_positives + false_positives)
+    else:
+        precision = 0.0
+    
+    # 计算F1分数
+    if precision + recall > 0:
+        f1_score = 2 * (precision * recall) / (precision + recall)
+    else:
+        f1_score = 0.0
+    
     # 计算功率消耗的RMSE和MAE
     rmse = np.sqrt(mean_squared_error(y_true_power, y_pred_power))
     mae = mean_absolute_error(y_true_power, y_pred_power)
     
+    # 计算R平方分数（决定系数）
+    # R² = 1 - (残差平方和 / 总平方和)
+    y_true_mean = np.mean(y_true_power)
+    ss_total = np.sum((y_true_power - y_true_mean) ** 2)  # 总平方和
+    ss_residual = np.sum((y_true_power - y_pred_power) ** 2)  # 残差平方和
+    
+    # 避免除零错误
+    if ss_total > 0:
+        r_squared = 1 - (ss_residual / ss_total)
+    else:
+        r_squared = 0.0
+    
     return {
         "accuracy": accuracy,
+        "recall": recall,
+        "precision": precision,
+        "f1_score": f1_score,
         "rmse": rmse,
-        "mae": mae
+        "mae": mae,
+        "r_squared": r_squared
     }
 
 def evaluate_model(model_name, tokenizer_name, test_prompts, test_labels, is_peft=False, adapter_path=None):
@@ -189,28 +229,69 @@ def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metric
     except:
         print("警告: 无法设置中文字体，图表中的中文可能无法正确显示")
     
-    metrics = ['overload_accuracy)', 'RMSE', 'MAE']
-    original_values = [original_metrics['accuracy'], original_metrics['rmse'], original_metrics['mae']]
-    few_shot_values = [few_shot_metrics['accuracy'], few_shot_metrics['rmse'], few_shot_metrics['mae']]
-    finetuned_values = [finetuned_metrics['accuracy'], finetuned_metrics['rmse'], finetuned_metrics['mae']]
+    # 分两组绘制图表：过载状态指标和功率消耗指标
+    # 1. 过载状态指标（准确率、召回率、精确率、F1分数）
+    overload_metrics = ['准确率', '召回率', '精确率', 'F1分数']
+    original_overload_values = [
+        original_metrics['accuracy'], 
+        original_metrics['recall'], 
+        original_metrics['precision'], 
+        original_metrics['f1_score']
+    ]
+    few_shot_overload_values = [
+        few_shot_metrics['accuracy'], 
+        few_shot_metrics['recall'], 
+        few_shot_metrics['precision'], 
+        few_shot_metrics['f1_score']
+    ]
+    finetuned_overload_values = [
+        finetuned_metrics['accuracy'], 
+        finetuned_metrics['recall'], 
+        finetuned_metrics['precision'], 
+        finetuned_metrics['f1_score']
+    ]
     
-    x = np.arange(len(metrics))  # 标签位置
+    # 2. 功率消耗指标（RMSE、MAE和R平方分数）
+    power_metrics = ['RMSE', 'MAE', 'R²']
+    original_power_values = [original_metrics['rmse'], original_metrics['mae'], original_metrics['r_squared']]
+    few_shot_power_values = [few_shot_metrics['rmse'], few_shot_metrics['mae'], few_shot_metrics['r_squared']]
+    finetuned_power_values = [finetuned_metrics['rmse'], finetuned_metrics['mae'], finetuned_metrics['r_squared']]
+    
+    # 创建一个包含两个子图的图表
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+    
+    # 绘制过载状态指标
+    x1 = np.arange(len(overload_metrics))  # 标签位置
     width = 0.25  # 柱状图宽度
     
-    fig, ax = plt.subplots(figsize=(14, 10))
-    rects1 = ax.bar(x - width, original_values, width, label='base', color='skyblue')
-    rects2 = ax.bar(x, few_shot_values, width, label='few-shot (checkpoint-50)', color='orange')
-    rects3 = ax.bar(x + width, finetuned_values, width, label='finetuned (checkpoint-625)', color='lightgreen')
+    rects1_1 = ax1.bar(x1 - width, original_overload_values, width, label='base', color='skyblue')
+    rects1_2 = ax1.bar(x1, few_shot_overload_values, width, label='few-shot (checkpoint-50)', color='orange')
+    rects1_3 = ax1.bar(x1 + width, finetuned_overload_values, width, label='finetuned (checkpoint-625)', color='lightgreen')
     
     # 添加标题和坐标轴标签
-    ax.set_title('原始模型与微调模型性能对比', fontsize=16)
-    ax.set_ylabel('指标值', fontsize=14)
-    ax.set_xticks(x)
-    ax.set_xticklabels(metrics, fontsize=12)
-    ax.legend(fontsize=12)
+    ax1.set_title('过载状态预测指标对比', fontsize=16)
+    ax1.set_ylabel('指标值', fontsize=14)
+    ax1.set_xticks(x1)
+    ax1.set_xticklabels(overload_metrics, fontsize=12)
+    ax1.legend(fontsize=12)
+    ax1.set_ylim(0, 1.0)  # 设置y轴范围为0-1，因为这些指标都是比率
+    
+    # 绘制功率消耗指标
+    x2 = np.arange(len(power_metrics))  # 标签位置
+    
+    rects2_1 = ax2.bar(x2 - width, original_power_values, width, label='base', color='skyblue')
+    rects2_2 = ax2.bar(x2, few_shot_power_values, width, label='few-shot (checkpoint-50)', color='orange')
+    rects2_3 = ax2.bar(x2 + width, finetuned_power_values, width, label='finetuned (checkpoint-625)', color='lightgreen')
+    
+    # 添加标题和坐标轴标签
+    ax2.set_title('功率消耗预测指标对比', fontsize=16)
+    ax2.set_ylabel('指标值', fontsize=14)
+    ax2.set_xticks(x2)
+    ax2.set_xticklabels(power_metrics, fontsize=12)
+    ax2.legend(fontsize=12)
     
     # 在柱状图上添加数值标签
-    def autolabel(rects):
+    def autolabel(rects, ax):
         for rect in rects:
             height = rect.get_height()
             ax.annotate('{:.4f}'.format(height),
@@ -219,9 +300,12 @@ def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metric
                         textcoords="offset points",
                         ha='center', va='bottom')
     
-    autolabel(rects1)
-    autolabel(rects2)
-    autolabel(rects3)
+    autolabel(rects1_1, ax1)
+    autolabel(rects1_2, ax1)
+    autolabel(rects1_3, ax1)
+    autolabel(rects2_1, ax2)
+    autolabel(rects2_2, ax2)
+    autolabel(rects2_3, ax2)
     
     # 调整布局
     fig.tight_layout()
@@ -284,38 +368,66 @@ def main():
     print("\n=== 评估结果 ===")
     print("原始模型:")
     print(f"  过载状态准确率: {original_metrics['accuracy']:.4f}")
+    print(f"  过载状态召回率: {original_metrics['recall']:.4f}")
+    print(f"  过载状态精确率: {original_metrics['precision']:.4f}")
+    print(f"  过载状态F1分数: {original_metrics['f1_score']:.4f}")
     print(f"  功率消耗RMSE: {original_metrics['rmse']:.4f}")
     print(f"  功率消耗MAE: {original_metrics['mae']:.4f}")
+    print(f"  功率消耗R平方分数: {original_metrics['r_squared']:.4f}")
     
     print("\n少样本微调模型 (checkpoint-50):")
     print(f"  过载状态准确率: {few_shot_metrics['accuracy']:.4f}")
+    print(f"  过载状态召回率: {few_shot_metrics['recall']:.4f}")
+    print(f"  过载状态精确率: {few_shot_metrics['precision']:.4f}")
+    print(f"  过载状态F1分数: {few_shot_metrics['f1_score']:.4f}")
     print(f"  功率消耗RMSE: {few_shot_metrics['rmse']:.4f}")
     print(f"  功率消耗MAE: {few_shot_metrics['mae']:.4f}")
+    print(f"  功率消耗R平方分数: {few_shot_metrics['r_squared']:.4f}")
     
     print("\n完全微调模型 (checkpoint-625):")
     print(f"  过载状态准确率: {finetuned_metrics['accuracy']:.4f}")
+    print(f"  过载状态召回率: {finetuned_metrics['recall']:.4f}")
+    print(f"  过载状态精确率: {finetuned_metrics['precision']:.4f}")
+    print(f"  过载状态F1分数: {finetuned_metrics['f1_score']:.4f}")
     print(f"  功率消耗RMSE: {finetuned_metrics['rmse']:.4f}")
     print(f"  功率消耗MAE: {finetuned_metrics['mae']:.4f}")
+    print(f"  功率消耗R平方分数: {finetuned_metrics['r_squared']:.4f}")
     
     # 少样本模型相对于原始模型的性能提升百分比
     few_shot_accuracy_improvement = ((few_shot_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    few_shot_recall_improvement = ((few_shot_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
+    few_shot_precision_improvement = ((few_shot_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
+    few_shot_f1_improvement = ((few_shot_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
     few_shot_rmse_improvement = ((original_metrics['rmse'] - few_shot_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
     few_shot_mae_improvement = ((original_metrics['mae'] - few_shot_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    few_shot_r_squared_improvement = ((few_shot_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
     
     # 完全微调模型相对于原始模型的性能提升百分比
     finetuned_accuracy_improvement = ((finetuned_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    finetuned_recall_improvement = ((finetuned_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
+    finetuned_precision_improvement = ((finetuned_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
+    finetuned_f1_improvement = ((finetuned_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
     finetuned_rmse_improvement = ((original_metrics['rmse'] - finetuned_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
     finetuned_mae_improvement = ((original_metrics['mae'] - finetuned_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    finetuned_r_squared_improvement = ((finetuned_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
     
     print("\n少样本微调模型性能提升:")
     print(f"  过载状态准确率提升: {few_shot_accuracy_improvement:.2f}%")
+    print(f"  过载状态召回率提升: {few_shot_recall_improvement:.2f}%")
+    print(f"  过载状态精确率提升: {few_shot_precision_improvement:.2f}%")
+    print(f"  过载状态F1分数提升: {few_shot_f1_improvement:.2f}%")
     print(f"  功率消耗RMSE降低: {few_shot_rmse_improvement:.2f}%")
     print(f"  功率消耗MAE降低: {few_shot_mae_improvement:.2f}%")
+    print(f"  功率消耗R平方分数提升: {few_shot_r_squared_improvement:.2f}%")
     
     print("\n完全微调模型性能提升:")
     print(f"  过载状态准确率提升: {finetuned_accuracy_improvement:.2f}%")
+    print(f"  过载状态召回率提升: {finetuned_recall_improvement:.2f}%")
+    print(f"  过载状态精确率提升: {finetuned_precision_improvement:.2f}%")
+    print(f"  过载状态F1分数提升: {finetuned_f1_improvement:.2f}%")
     print(f"  功率消耗RMSE降低: {finetuned_rmse_improvement:.2f}%")
     print(f"  功率消耗MAE降低: {finetuned_mae_improvement:.2f}%")
+    print(f"  功率消耗R平方分数提升: {finetuned_r_squared_improvement:.2f}%")
     
     # 保存评估结果
     results = {
@@ -337,13 +449,21 @@ def main():
         "improvements": {
             "few_shot": {
                 "accuracy": few_shot_accuracy_improvement,
+                "recall": few_shot_recall_improvement,
+                "precision": few_shot_precision_improvement,
+                "f1_score": few_shot_f1_improvement,
                 "rmse": few_shot_rmse_improvement,
-                "mae": few_shot_mae_improvement
+                "mae": few_shot_mae_improvement,
+                "r_squared": few_shot_r_squared_improvement
             },
             "finetuned": {
                 "accuracy": finetuned_accuracy_improvement,
+                "recall": finetuned_recall_improvement,
+                "precision": finetuned_precision_improvement,
+                "f1_score": finetuned_f1_improvement,
                 "rmse": finetuned_rmse_improvement,
-                "mae": finetuned_mae_improvement
+                "mae": finetuned_mae_improvement,
+                "r_squared": finetuned_r_squared_improvement
             }
         }
     }
@@ -354,8 +474,12 @@ def main():
             "original_model": {
                 "metrics": {
                     "accuracy": float(original_metrics["accuracy"]),
+                    "recall": float(original_metrics["recall"]),
+                    "precision": float(original_metrics["precision"]),
+                    "f1_score": float(original_metrics["f1_score"]),
                     "rmse": float(original_metrics["rmse"]),
-                    "mae": float(original_metrics["mae"])
+                    "mae": float(original_metrics["mae"]),
+                    "r_squared": float(original_metrics["r_squared"])
                 },
                 "predictions": original_predictions,
                 "parsed_predictions": [(int(o), float(p)) for o, p in original_parsed]
@@ -363,8 +487,12 @@ def main():
             "few_shot_model": {
                 "metrics": {
                     "accuracy": float(few_shot_metrics["accuracy"]),
+                    "recall": float(few_shot_metrics["recall"]),
+                    "precision": float(few_shot_metrics["precision"]),
+                    "f1_score": float(few_shot_metrics["f1_score"]),
                     "rmse": float(few_shot_metrics["rmse"]),
-                    "mae": float(few_shot_metrics["mae"])
+                    "mae": float(few_shot_metrics["mae"]),
+                    "r_squared": float(few_shot_metrics["r_squared"])
                 },
                 "predictions": few_shot_predictions,
                 "parsed_predictions": [(int(o), float(p)) for o, p in few_shot_parsed]
@@ -372,8 +500,12 @@ def main():
             "finetuned_model": {
                 "metrics": {
                     "accuracy": float(finetuned_metrics["accuracy"]),
+                    "recall": float(finetuned_metrics["recall"]),
+                    "precision": float(finetuned_metrics["precision"]),
+                    "f1_score": float(finetuned_metrics["f1_score"]),
                     "rmse": float(finetuned_metrics["rmse"]),
-                    "mae": float(finetuned_metrics["mae"])
+                    "mae": float(finetuned_metrics["mae"]),
+                    "r_squared": float(finetuned_metrics["r_squared"])
                 },
                 "predictions": finetuned_predictions,
                 "parsed_predictions": [(int(o), float(p)) for o, p in finetuned_parsed]
