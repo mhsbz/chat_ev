@@ -1,11 +1,26 @@
 import torch
 from transformers import pipeline
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model_id = "meta-llama/Llama-3.2-1B-Instruct"
-model_id = "llama_finetuned"
+adapter_path = "checkpoints/checkpoint-300"
+
+tokenizer = AutoTokenizer.from_pretrained(
+    model_id,
+    trust_remote_code=True
+)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    trust_remote_code=True
+)
+
+model.cuda()
+model = PeftModel.from_pretrained(model, adapter_path)
 pipe = pipeline(
     "text-generation",
-    model=model_id,
+    tokenizer=tokenizer,
+    model=model,
     torch_dtype=torch.bfloat16,
     device="cuda:0",
 )
