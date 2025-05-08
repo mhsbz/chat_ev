@@ -216,7 +216,7 @@ def evaluate_model(model_name, tokenizer_name, test_prompts, test_labels, is_pef
     
     return metrics, predictions, parsed_predictions
 
-def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metrics):
+def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_100_metrics, checkpoint_200_metrics, checkpoint_300_metrics, checkpoint_400_metrics):
     """
     绘制评估指标的柱状图对比
     """
@@ -238,35 +238,59 @@ def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metric
         original_metrics['precision'], 
         original_metrics['f1_score']
     ]
-    few_shot_overload_values = [
-        few_shot_metrics['accuracy'], 
-        few_shot_metrics['recall'], 
-        few_shot_metrics['precision'], 
-        few_shot_metrics['f1_score']
+    checkpoint_50_overload_values = [
+        checkpoint_50_metrics['accuracy'], 
+        checkpoint_50_metrics['recall'], 
+        checkpoint_50_metrics['precision'], 
+        checkpoint_50_metrics['f1_score']
     ]
-    finetuned_overload_values = [
-        finetuned_metrics['accuracy'], 
-        finetuned_metrics['recall'], 
-        finetuned_metrics['precision'], 
-        finetuned_metrics['f1_score']
+    checkpoint_100_overload_values = [
+        checkpoint_100_metrics['accuracy'], 
+        checkpoint_100_metrics['recall'], 
+        checkpoint_100_metrics['precision'], 
+        checkpoint_100_metrics['f1_score']
+    ]
+    checkpoint_200_overload_values = [
+        checkpoint_200_metrics['accuracy'], 
+        checkpoint_200_metrics['recall'], 
+        checkpoint_200_metrics['precision'], 
+        checkpoint_200_metrics['f1_score']
+    ]
+    checkpoint_300_overload_values = [
+        checkpoint_300_metrics['accuracy'], 
+        checkpoint_300_metrics['recall'], 
+        checkpoint_300_metrics['precision'], 
+        checkpoint_300_metrics['f1_score']
+    ]
+    checkpoint_400_overload_values = [
+        checkpoint_400_metrics['accuracy'], 
+        checkpoint_400_metrics['recall'], 
+        checkpoint_400_metrics['precision'], 
+        checkpoint_400_metrics['f1_score']
     ]
     
     # 2. 功率消耗指标（RMSE、MAE和R平方分数）
     power_metrics = ['RMSE', 'MAE', 'R²']
     original_power_values = [original_metrics['rmse'], original_metrics['mae'], original_metrics['r_squared']]
-    few_shot_power_values = [few_shot_metrics['rmse'], few_shot_metrics['mae'], few_shot_metrics['r_squared']]
-    finetuned_power_values = [finetuned_metrics['rmse'], finetuned_metrics['mae'], finetuned_metrics['r_squared']]
+    checkpoint_50_power_values = [checkpoint_50_metrics['rmse'], checkpoint_50_metrics['mae'], checkpoint_50_metrics['r_squared']]
+    checkpoint_100_power_values = [checkpoint_100_metrics['rmse'], checkpoint_100_metrics['mae'], checkpoint_100_metrics['r_squared']]
+    checkpoint_200_power_values = [checkpoint_200_metrics['rmse'], checkpoint_200_metrics['mae'], checkpoint_200_metrics['r_squared']]
+    checkpoint_300_power_values = [checkpoint_300_metrics['rmse'], checkpoint_300_metrics['mae'], checkpoint_300_metrics['r_squared']]
+    checkpoint_400_power_values = [checkpoint_400_metrics['rmse'], checkpoint_400_metrics['mae'], checkpoint_400_metrics['r_squared']]
     
     # 创建一个包含两个子图的图表
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 12))
     
     # 绘制过载状态指标
     x1 = np.arange(len(overload_metrics))  # 标签位置
-    width = 0.25  # 柱状图宽度
+    width = 0.14  # 柱状图宽度
     
-    rects1_1 = ax1.bar(x1 - width, original_overload_values, width, label='base', color='skyblue')
-    rects1_2 = ax1.bar(x1, few_shot_overload_values, width, label='few-shot (checkpoint-50)', color='orange')
-    rects1_3 = ax1.bar(x1 + width, finetuned_overload_values, width, label='finetuned (checkpoint-625)', color='lightgreen')
+    rects1_1 = ax1.bar(x1 - 2.5*width, original_overload_values, width, label='base', color='skyblue')
+    rects1_2 = ax1.bar(x1 - 1.5*width, checkpoint_50_overload_values, width, label='checkpoint-50', color='orange')
+    rects1_3 = ax1.bar(x1 - 0.5*width, checkpoint_100_overload_values, width, label='checkpoint-100', color='lightgreen')
+    rects1_4 = ax1.bar(x1 + 0.5*width, checkpoint_200_overload_values, width, label='checkpoint-200', color='salmon')
+    rects1_5 = ax1.bar(x1 + 1.5*width, checkpoint_300_overload_values, width, label='checkpoint-300', color='mediumpurple')
+    rects1_6 = ax1.bar(x1 + 2.5*width, checkpoint_400_overload_values, width, label='checkpoint-400', color='gold')
     
     # 添加标题和坐标轴标签
     ax1.set_title('过载状态预测指标对比', fontsize=16)
@@ -279,9 +303,12 @@ def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metric
     # 绘制功率消耗指标
     x2 = np.arange(len(power_metrics))  # 标签位置
     
-    rects2_1 = ax2.bar(x2 - width, original_power_values, width, label='base', color='skyblue')
-    rects2_2 = ax2.bar(x2, few_shot_power_values, width, label='few-shot (checkpoint-50)', color='orange')
-    rects2_3 = ax2.bar(x2 + width, finetuned_power_values, width, label='finetuned (checkpoint-625)', color='lightgreen')
+    rects2_1 = ax2.bar(x2 - 2.5*width, original_power_values, width, label='base', color='skyblue')
+    rects2_2 = ax2.bar(x2 - 1.5*width, checkpoint_50_power_values, width, label='checkpoint-50', color='orange')
+    rects2_3 = ax2.bar(x2 - 0.5*width, checkpoint_100_power_values, width, label='checkpoint-100', color='lightgreen')
+    rects2_4 = ax2.bar(x2 + 0.5*width, checkpoint_200_power_values, width, label='checkpoint-200', color='salmon')
+    rects2_5 = ax2.bar(x2 + 1.5*width, checkpoint_300_power_values, width, label='checkpoint-300', color='mediumpurple')
+    rects2_6 = ax2.bar(x2 + 2.5*width, checkpoint_400_power_values, width, label='checkpoint-400', color='gold')
     
     # 添加标题和坐标轴标签
     ax2.set_title('功率消耗预测指标对比', fontsize=16)
@@ -298,14 +325,20 @@ def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metric
                         xy=(rect.get_x() + rect.get_width() / 2, height),
                         xytext=(0, 3),  # 3点垂直偏移
                         textcoords="offset points",
-                        ha='center', va='bottom')
+                        ha='center', va='bottom', fontsize=8)
     
     autolabel(rects1_1, ax1)
     autolabel(rects1_2, ax1)
     autolabel(rects1_3, ax1)
+    autolabel(rects1_4, ax1)
+    autolabel(rects1_5, ax1)
+    autolabel(rects1_6, ax1)
     autolabel(rects2_1, ax2)
     autolabel(rects2_2, ax2)
     autolabel(rects2_3, ax2)
+    autolabel(rects2_4, ax2)
+    autolabel(rects2_5, ax2)
+    autolabel(rects2_6, ax2)
     
     # 调整布局
     fig.tight_layout()
@@ -313,19 +346,118 @@ def plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metric
     # 保存图表
     plt.savefig('model_comparison.png', dpi=300, bbox_inches='tight')
     print("评估指标柱状图已保存为 model_comparison.png")
+    
+    # 绘制训练步数与性能指标的关系曲线图
+    plt.figure(figsize=(20, 15))
+    
+    # 设置训练步数
+    steps = [0, 50, 100, 200, 300, 400]  # 0代表原始模型
+    
+    # 1. 过载状态准确率曲线
+    plt.subplot(3, 2, 1)
+    accuracy_values = [
+        original_metrics['accuracy'],
+        checkpoint_50_metrics['accuracy'],
+        checkpoint_100_metrics['accuracy'],
+        checkpoint_200_metrics['accuracy'],
+        checkpoint_300_metrics['accuracy'],
+        checkpoint_400_metrics['accuracy']
+    ]
+    plt.plot(steps, accuracy_values, 'o-', linewidth=2, markersize=8)
+    plt.title('训练步数与过载状态准确率关系', fontsize=14)
+    plt.xlabel('训练步数', fontsize=12)
+    plt.ylabel('准确率', fontsize=12)
+    plt.grid(True)
+    
+    # 2. 过载状态F1分数曲线
+    plt.subplot(3, 2, 2)
+    f1_values = [
+        original_metrics['f1_score'],
+        checkpoint_50_metrics['f1_score'],
+        checkpoint_100_metrics['f1_score'],
+        checkpoint_200_metrics['f1_score'],
+        checkpoint_300_metrics['f1_score'],
+        checkpoint_400_metrics['f1_score']
+    ]
+    plt.plot(steps, f1_values, 'o-', linewidth=2, markersize=8, color='orange')
+    plt.title('训练步数与过载状态F1分数关系', fontsize=14)
+    plt.xlabel('训练步数', fontsize=12)
+    plt.ylabel('F1分数', fontsize=12)
+    plt.grid(True)
+    
+    # 3. 功率消耗RMSE曲线
+    plt.subplot(3, 2, 3)
+    rmse_values = [
+        original_metrics['rmse'],
+        checkpoint_50_metrics['rmse'],
+        checkpoint_100_metrics['rmse'],
+        checkpoint_200_metrics['rmse'],
+        checkpoint_300_metrics['rmse'],
+        checkpoint_400_metrics['rmse']
+    ]
+    plt.plot(steps, rmse_values, 'o-', linewidth=2, markersize=8, color='green')
+    plt.title('训练步数与功率消耗RMSE关系', fontsize=14)
+    plt.xlabel('训练步数', fontsize=12)
+    plt.ylabel('RMSE', fontsize=12)
+    plt.grid(True)
+    
+    # 4. 功率消耗MAE曲线
+    plt.subplot(3, 2, 4)
+    mae_values = [
+        original_metrics['mae'],
+        checkpoint_50_metrics['mae'],
+        checkpoint_100_metrics['mae'],
+        checkpoint_200_metrics['mae'],
+        checkpoint_300_metrics['mae'],
+        checkpoint_400_metrics['mae']
+    ]
+    plt.plot(steps, mae_values, 'o-', linewidth=2, markersize=8, color='red')
+    plt.title('训练步数与功率消耗MAE关系', fontsize=14)
+    plt.xlabel('训练步数', fontsize=12)
+    plt.ylabel('MAE', fontsize=12)
+    plt.grid(True)
+    
+    # 5. 功率消耗R平方分数曲线
+    plt.subplot(3, 2, 5)
+    r_squared_values = [
+        original_metrics['r_squared'],
+        checkpoint_50_metrics['r_squared'],
+        checkpoint_100_metrics['r_squared'],
+        checkpoint_200_metrics['r_squared'],
+        checkpoint_300_metrics['r_squared'],
+        checkpoint_400_metrics['r_squared']
+    ]
+    plt.plot(steps, r_squared_values, 'o-', linewidth=2, markersize=8, color='purple')
+    plt.title('训练步数与功率消耗R平方分数关系', fontsize=14)
+    plt.xlabel('训练步数', fontsize=12)
+    plt.ylabel('R平方分数', fontsize=12)
+    plt.grid(True)
+    
+    # 调整布局
+    plt.tight_layout()
+    
+    # 保存图表
+    plt.savefig('training_progress.png', dpi=300, bbox_inches='tight')
+    print("训练进度曲线图已保存为 training_progress.png")
 
 def main():
     # 配置参数
     original_model_name = "meta-llama/Llama-3.2-1B-Instruct"  # 与训练脚本中使用的模型一致
-    few_shot_model_adapter_path = "checkpoints/checkpoint-50"  # 少样本微调模型的保存路径
-    finetuned_model_adapter_path = "checkpoints/checkpoint-300"  # 微调模型的保存路径
+    checkpoint_50_adapter_path = "checkpoints/checkpoint-50"  # 50步检查点模型的保存路径
+    checkpoint_100_adapter_path = "checkpoints/checkpoint-100"  # 100步检查点模型的保存路径
+    checkpoint_200_adapter_path = "checkpoints/checkpoint-200"  # 200步检查点模型的保存路径
+    checkpoint_300_adapter_path = "checkpoints/checkpoint-300"  # 300步检查点模型的保存路径
+    checkpoint_400_adapter_path = "checkpoints/checkpoint-400"  # 400步检查点模型的保存路径
     json_test_data_path = "sft_data_test.json"  # JSON测试数据路径
     
     # 打印评估配置
     print("=== 电网安全预测模型评估 ===")
     print(f"原始模型: {original_model_name}")
-    print(f"少样本微调模型适配器: {few_shot_model_adapter_path}")
-    print(f"完全微调模型适配器: {finetuned_model_adapter_path}")
+    print(f"检查点-50步适配器: {checkpoint_50_adapter_path}")
+    print(f"检查点-100步适配器: {checkpoint_100_adapter_path}")
+    print(f"检查点-200步适配器: {checkpoint_200_adapter_path}")
+    print(f"检查点-300步适配器: {checkpoint_300_adapter_path}")
+    print(f"检查点-400步适配器: {checkpoint_400_adapter_path}")
     
 
     test_data = load_json_test_data(json_test_data_path)
@@ -341,24 +473,54 @@ def main():
         test_labels
     )
     
-    # 评估少样本微调模型 (checkpoint-50)
-    few_shot_metrics, few_shot_predictions, few_shot_parsed = evaluate_model(
+    # 评估50步检查点模型
+    checkpoint_50_metrics, checkpoint_50_predictions, checkpoint_50_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
         test_prompts, 
         test_labels, 
         is_peft=True, 
-        adapter_path=few_shot_model_adapter_path
+        adapter_path=checkpoint_50_adapter_path
     )
     
-    # 评估完全微调后的模型 (checkpoint-625)
-    finetuned_metrics, finetuned_predictions, finetuned_parsed = evaluate_model(
+    # 评估100步检查点模型
+    checkpoint_100_metrics, checkpoint_100_predictions, checkpoint_100_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
         test_prompts, 
         test_labels, 
         is_peft=True, 
-        adapter_path=finetuned_model_adapter_path
+        adapter_path=checkpoint_100_adapter_path
+    )
+    
+    # 评估200步检查点模型
+    checkpoint_200_metrics, checkpoint_200_predictions, checkpoint_200_parsed = evaluate_model(
+        original_model_name, 
+        original_model_name, 
+        test_prompts, 
+        test_labels, 
+        is_peft=True, 
+        adapter_path=checkpoint_200_adapter_path
+    )
+    
+    # 评估300步检查点模型
+    checkpoint_300_metrics, checkpoint_300_predictions, checkpoint_300_parsed = evaluate_model(
+        original_model_name, 
+        original_model_name, 
+        test_prompts, 
+        test_labels, 
+        is_peft=True, 
+        adapter_path=checkpoint_300_adapter_path
+    )
+    
+    # 评估400步检查点模型
+    checkpoint_400_metrics, checkpoint_400_predictions, checkpoint_400_parsed = evaluate_model(
+        original_model_name, 
+        original_model_name, 
+        test_prompts, 
+        test_labels, 
+        is_peft=True, 
+        adapter_path=checkpoint_400_adapter_path
     )
     
     # 打印评估结果
@@ -372,59 +534,142 @@ def main():
     print(f"  功率消耗MAE: {original_metrics['mae']:.4f}")
     print(f"  功率消耗R平方分数: {original_metrics['r_squared']:.4f}")
     
-    print("\n少样本微调模型 (checkpoint-50):")
-    print(f"  过载状态准确率: {few_shot_metrics['accuracy']:.4f}")
-    print(f"  过载状态召回率: {few_shot_metrics['recall']:.4f}")
-    print(f"  过载状态精确率: {few_shot_metrics['precision']:.4f}")
-    print(f"  过载状态F1分数: {few_shot_metrics['f1_score']:.4f}")
-    print(f"  功率消耗RMSE: {few_shot_metrics['rmse']:.4f}")
-    print(f"  功率消耗MAE: {few_shot_metrics['mae']:.4f}")
-    print(f"  功率消耗R平方分数: {few_shot_metrics['r_squared']:.4f}")
+    print("\n检查点-50步模型:")
+    print(f"  过载状态准确率: {checkpoint_50_metrics['accuracy']:.4f}")
+    print(f"  过载状态召回率: {checkpoint_50_metrics['recall']:.4f}")
+    print(f"  过载状态精确率: {checkpoint_50_metrics['precision']:.4f}")
+    print(f"  过载状态F1分数: {checkpoint_50_metrics['f1_score']:.4f}")
+    print(f"  功率消耗RMSE: {checkpoint_50_metrics['rmse']:.4f}")
+    print(f"  功率消耗MAE: {checkpoint_50_metrics['mae']:.4f}")
+    print(f"  功率消耗R平方分数: {checkpoint_50_metrics['r_squared']:.4f}")
     
-    print("\n完全微调模型 (checkpoint-625):")
-    print(f"  过载状态准确率: {finetuned_metrics['accuracy']:.4f}")
-    print(f"  过载状态召回率: {finetuned_metrics['recall']:.4f}")
-    print(f"  过载状态精确率: {finetuned_metrics['precision']:.4f}")
-    print(f"  过载状态F1分数: {finetuned_metrics['f1_score']:.4f}")
-    print(f"  功率消耗RMSE: {finetuned_metrics['rmse']:.4f}")
-    print(f"  功率消耗MAE: {finetuned_metrics['mae']:.4f}")
-    print(f"  功率消耗R平方分数: {finetuned_metrics['r_squared']:.4f}")
+    print("\n检查点-100步模型:")
+    print(f"  过载状态准确率: {checkpoint_100_metrics['accuracy']:.4f}")
+    print(f"  过载状态召回率: {checkpoint_100_metrics['recall']:.4f}")
+    print(f"  过载状态精确率: {checkpoint_100_metrics['precision']:.4f}")
+    print(f"  过载状态F1分数: {checkpoint_100_metrics['f1_score']:.4f}")
+    print(f"  功率消耗RMSE: {checkpoint_100_metrics['rmse']:.4f}")
+    print(f"  功率消耗MAE: {checkpoint_100_metrics['mae']:.4f}")
+    print(f"  功率消耗R平方分数: {checkpoint_100_metrics['r_squared']:.4f}")
     
-    # 少样本模型相对于原始模型的性能提升百分比
-    few_shot_accuracy_improvement = ((few_shot_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
-    few_shot_recall_improvement = ((few_shot_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
-    few_shot_precision_improvement = ((few_shot_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
-    few_shot_f1_improvement = ((few_shot_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
-    few_shot_rmse_improvement = ((original_metrics['rmse'] - few_shot_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
-    few_shot_mae_improvement = ((original_metrics['mae'] - few_shot_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
-    few_shot_r_squared_improvement = ((few_shot_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
+    print("\n检查点-200步模型:")
+    print(f"  过载状态准确率: {checkpoint_200_metrics['accuracy']:.4f}")
+    print(f"  过载状态召回率: {checkpoint_200_metrics['recall']:.4f}")
+    print(f"  过载状态精确率: {checkpoint_200_metrics['precision']:.4f}")
+    print(f"  过载状态F1分数: {checkpoint_200_metrics['f1_score']:.4f}")
+    print(f"  功率消耗RMSE: {checkpoint_200_metrics['rmse']:.4f}")
+    print(f"  功率消耗MAE: {checkpoint_200_metrics['mae']:.4f}")
+    print(f"  功率消耗R平方分数: {checkpoint_200_metrics['r_squared']:.4f}")
     
-    # 完全微调模型相对于原始模型的性能提升百分比
-    finetuned_accuracy_improvement = ((finetuned_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
-    finetuned_recall_improvement = ((finetuned_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
-    finetuned_precision_improvement = ((finetuned_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
-    finetuned_f1_improvement = ((finetuned_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
-    finetuned_rmse_improvement = ((original_metrics['rmse'] - finetuned_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
-    finetuned_mae_improvement = ((original_metrics['mae'] - finetuned_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
-    finetuned_r_squared_improvement = ((finetuned_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
+    print("\n检查点-300步模型:")
+    print(f"  过载状态准确率: {checkpoint_300_metrics['accuracy']:.4f}")
+    print(f"  过载状态召回率: {checkpoint_300_metrics['recall']:.4f}")
+    print(f"  过载状态精确率: {checkpoint_300_metrics['precision']:.4f}")
+    print(f"  过载状态F1分数: {checkpoint_300_metrics['f1_score']:.4f}")
+    print(f"  功率消耗RMSE: {checkpoint_300_metrics['rmse']:.4f}")
+    print(f"  功率消耗MAE: {checkpoint_300_metrics['mae']:.4f}")
+    print(f"  功率消耗R平方分数: {checkpoint_300_metrics['r_squared']:.4f}")
     
-    print("\n少样本微调模型性能提升:")
-    print(f"  过载状态准确率提升: {few_shot_accuracy_improvement:.2f}%")
-    print(f"  过载状态召回率提升: {few_shot_recall_improvement:.2f}%")
-    print(f"  过载状态精确率提升: {few_shot_precision_improvement:.2f}%")
-    print(f"  过载状态F1分数提升: {few_shot_f1_improvement:.2f}%")
-    print(f"  功率消耗RMSE降低: {few_shot_rmse_improvement:.2f}%")
-    print(f"  功率消耗MAE降低: {few_shot_mae_improvement:.2f}%")
-    print(f"  功率消耗R平方分数提升: {few_shot_r_squared_improvement:.2f}%")
+    print("\n检查点-400步模型:")
+    print(f"  过载状态准确率: {checkpoint_400_metrics['accuracy']:.4f}")
+    print(f"  过载状态召回率: {checkpoint_400_metrics['recall']:.4f}")
+    print(f"  过载状态精确率: {checkpoint_400_metrics['precision']:.4f}")
+    print(f"  过载状态F1分数: {checkpoint_400_metrics['f1_score']:.4f}")
+    print(f"  功率消耗RMSE: {checkpoint_400_metrics['rmse']:.4f}")
+    print(f"  功率消耗MAE: {checkpoint_400_metrics['mae']:.4f}")
+    print(f"  功率消耗R平方分数: {checkpoint_400_metrics['r_squared']:.4f}")
     
-    print("\n完全微调模型性能提升:")
-    print(f"  过载状态准确率提升: {finetuned_accuracy_improvement:.2f}%")
-    print(f"  过载状态召回率提升: {finetuned_recall_improvement:.2f}%")
-    print(f"  过载状态精确率提升: {finetuned_precision_improvement:.2f}%")
-    print(f"  过载状态F1分数提升: {finetuned_f1_improvement:.2f}%")
-    print(f"  功率消耗RMSE降低: {finetuned_rmse_improvement:.2f}%")
-    print(f"  功率消耗MAE降低: {finetuned_mae_improvement:.2f}%")
-    print(f"  功率消耗R平方分数提升: {finetuned_r_squared_improvement:.2f}%")
+    # 计算各个检查点模型相对于原始模型的性能提升百分比
+    # 50步检查点
+    checkpoint_50_accuracy_improvement = ((checkpoint_50_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    checkpoint_50_recall_improvement = ((checkpoint_50_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
+    checkpoint_50_precision_improvement = ((checkpoint_50_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
+    checkpoint_50_f1_improvement = ((checkpoint_50_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
+    checkpoint_50_rmse_improvement = ((original_metrics['rmse'] - checkpoint_50_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
+    checkpoint_50_mae_improvement = ((original_metrics['mae'] - checkpoint_50_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    checkpoint_50_r_squared_improvement = ((checkpoint_50_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
+    
+    # 100步检查点
+    checkpoint_100_accuracy_improvement = ((checkpoint_100_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    checkpoint_100_recall_improvement = ((checkpoint_100_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
+    checkpoint_100_precision_improvement = ((checkpoint_100_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
+    checkpoint_100_f1_improvement = ((checkpoint_100_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
+    checkpoint_100_rmse_improvement = ((original_metrics['rmse'] - checkpoint_100_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
+    checkpoint_100_mae_improvement = ((original_metrics['mae'] - checkpoint_100_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    checkpoint_100_r_squared_improvement = ((checkpoint_100_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
+    
+    # 200步检查点
+    checkpoint_200_accuracy_improvement = ((checkpoint_200_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    checkpoint_200_recall_improvement = ((checkpoint_200_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
+    checkpoint_200_precision_improvement = ((checkpoint_200_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
+    checkpoint_200_f1_improvement = ((checkpoint_200_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
+    checkpoint_200_rmse_improvement = ((original_metrics['rmse'] - checkpoint_200_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
+    checkpoint_200_mae_improvement = ((original_metrics['mae'] - checkpoint_200_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    checkpoint_200_r_squared_improvement = ((checkpoint_200_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
+    
+    # 300步检查点
+    checkpoint_300_accuracy_improvement = ((checkpoint_300_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    checkpoint_300_recall_improvement = ((checkpoint_300_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
+    checkpoint_300_precision_improvement = ((checkpoint_300_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
+    checkpoint_300_f1_improvement = ((checkpoint_300_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
+    checkpoint_300_rmse_improvement = ((original_metrics['rmse'] - checkpoint_300_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
+    checkpoint_300_mae_improvement = ((original_metrics['mae'] - checkpoint_300_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    checkpoint_300_r_squared_improvement = ((checkpoint_300_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
+    
+    # 400步检查点
+    checkpoint_400_accuracy_improvement = ((checkpoint_400_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
+    checkpoint_400_recall_improvement = ((checkpoint_400_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
+    checkpoint_400_precision_improvement = ((checkpoint_400_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
+    checkpoint_400_f1_improvement = ((checkpoint_400_metrics['f1_score'] - original_metrics['f1_score']) / original_metrics['f1_score']) * 100 if original_metrics['f1_score'] > 0 else float('inf')
+    checkpoint_400_rmse_improvement = ((original_metrics['rmse'] - checkpoint_400_metrics['rmse']) / original_metrics['rmse']) * 100 if original_metrics['rmse'] > 0 else float('inf')
+    checkpoint_400_mae_improvement = ((original_metrics['mae'] - checkpoint_400_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
+    checkpoint_400_r_squared_improvement = ((checkpoint_400_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
+    
+    print("\n各检查点模型性能提升:")
+    print("检查点-50步模型:")
+    print(f"  过载状态准确率提升: {checkpoint_50_accuracy_improvement:.2f}%")
+    print(f"  过载状态召回率提升: {checkpoint_50_recall_improvement:.2f}%")
+    print(f"  过载状态精确率提升: {checkpoint_50_precision_improvement:.2f}%")
+    print(f"  过载状态F1分数提升: {checkpoint_50_f1_improvement:.2f}%")
+    print(f"  功率消耗RMSE降低: {checkpoint_50_rmse_improvement:.2f}%")
+    print(f"  功率消耗MAE降低: {checkpoint_50_mae_improvement:.2f}%")
+    print(f"  功率消耗R平方分数提升: {checkpoint_50_r_squared_improvement:.2f}%")
+    
+    print("\n检查点-100步模型:")
+    print(f"  过载状态准确率提升: {checkpoint_100_accuracy_improvement:.2f}%")
+    print(f"  过载状态召回率提升: {checkpoint_100_recall_improvement:.2f}%")
+    print(f"  过载状态精确率提升: {checkpoint_100_precision_improvement:.2f}%")
+    print(f"  过载状态F1分数提升: {checkpoint_100_f1_improvement:.2f}%")
+    print(f"  功率消耗RMSE降低: {checkpoint_100_rmse_improvement:.2f}%")
+    print(f"  功率消耗MAE降低: {checkpoint_100_mae_improvement:.2f}%")
+    print(f"  功率消耗R平方分数提升: {checkpoint_100_r_squared_improvement:.2f}%")
+    
+    print("\n检查点-200步模型:")
+    print(f"  过载状态准确率提升: {checkpoint_200_accuracy_improvement:.2f}%")
+    print(f"  过载状态召回率提升: {checkpoint_200_recall_improvement:.2f}%")
+    print(f"  过载状态精确率提升: {checkpoint_200_precision_improvement:.2f}%")
+    print(f"  过载状态F1分数提升: {checkpoint_200_f1_improvement:.2f}%")
+    print(f"  功率消耗RMSE降低: {checkpoint_200_rmse_improvement:.2f}%")
+    print(f"  功率消耗MAE降低: {checkpoint_200_mae_improvement:.2f}%")
+    print(f"  功率消耗R平方分数提升: {checkpoint_200_r_squared_improvement:.2f}%")
+    
+    print("\n检查点-300步模型:")
+    print(f"  过载状态准确率提升: {checkpoint_300_accuracy_improvement:.2f}%")
+    print(f"  过载状态召回率提升: {checkpoint_300_recall_improvement:.2f}%")
+    print(f"  过载状态精确率提升: {checkpoint_300_precision_improvement:.2f}%")
+    print(f"  过载状态F1分数提升: {checkpoint_300_f1_improvement:.2f}%")
+    print(f"  功率消耗RMSE降低: {checkpoint_300_rmse_improvement:.2f}%")
+    print(f"  功率消耗MAE降低: {checkpoint_300_mae_improvement:.2f}%")
+    print(f"  功率消耗R平方分数提升: {checkpoint_300_r_squared_improvement:.2f}%")
+    
+    print("\n检查点-400步模型:")
+    print(f"  过载状态准确率提升: {checkpoint_400_accuracy_improvement:.2f}%")
+    print(f"  过载状态召回率提升: {checkpoint_400_recall_improvement:.2f}%")
+    print(f"  过载状态精确率提升: {checkpoint_400_precision_improvement:.2f}%")
+    print(f"  过载状态F1分数提升: {checkpoint_400_f1_improvement:.2f}%")
+    print(f"  功率消耗RMSE降低: {checkpoint_400_rmse_improvement:.2f}%")
+    print(f"  功率消耗MAE降低: {checkpoint_400_mae_improvement:.2f}%")
+    print(f"  功率消耗R平方分数提升: {checkpoint_400_r_squared_improvement:.2f}%")
     
     # 保存评估结果
     results = {
@@ -433,34 +678,76 @@ def main():
             "predictions": original_predictions,
             "parsed_predictions": original_parsed
         },
-        "few_shot_model": {
-            "metrics": few_shot_metrics,
-            "predictions": few_shot_predictions,
-            "parsed_predictions": few_shot_parsed
+        "checkpoint_50": {
+            "metrics": checkpoint_50_metrics,
+            "predictions": checkpoint_50_predictions,
+            "parsed_predictions": checkpoint_50_parsed
         },
-        "finetuned_model": {
-            "metrics": finetuned_metrics,
-            "predictions": finetuned_predictions,
-            "parsed_predictions": finetuned_parsed
+        "checkpoint_100": {
+            "metrics": checkpoint_100_metrics,
+            "predictions": checkpoint_100_predictions,
+            "parsed_predictions": checkpoint_100_parsed
+        },
+        "checkpoint_200": {
+            "metrics": checkpoint_200_metrics,
+            "predictions": checkpoint_200_predictions,
+            "parsed_predictions": checkpoint_200_parsed
+        },
+        "checkpoint_300": {
+            "metrics": checkpoint_300_metrics,
+            "predictions": checkpoint_300_predictions,
+            "parsed_predictions": checkpoint_300_parsed
+        },
+        "checkpoint_400": {
+            "metrics": checkpoint_400_metrics,
+            "predictions": checkpoint_400_predictions,
+            "parsed_predictions": checkpoint_400_parsed
         },
         "improvements": {
-            "few_shot": {
-                "accuracy": few_shot_accuracy_improvement,
-                "recall": few_shot_recall_improvement,
-                "precision": few_shot_precision_improvement,
-                "f1_score": few_shot_f1_improvement,
-                "rmse": few_shot_rmse_improvement,
-                "mae": few_shot_mae_improvement,
-                "r_squared": few_shot_r_squared_improvement
+            "checkpoint_50": {
+                "accuracy": checkpoint_50_accuracy_improvement,
+                "recall": checkpoint_50_recall_improvement,
+                "precision": checkpoint_50_precision_improvement,
+                "f1_score": checkpoint_50_f1_improvement,
+                "rmse": checkpoint_50_rmse_improvement,
+                "mae": checkpoint_50_mae_improvement,
+                "r_squared": checkpoint_50_r_squared_improvement
             },
-            "finetuned": {
-                "accuracy": finetuned_accuracy_improvement,
-                "recall": finetuned_recall_improvement,
-                "precision": finetuned_precision_improvement,
-                "f1_score": finetuned_f1_improvement,
-                "rmse": finetuned_rmse_improvement,
-                "mae": finetuned_mae_improvement,
-                "r_squared": finetuned_r_squared_improvement
+            "checkpoint_100": {
+                "accuracy": checkpoint_100_accuracy_improvement,
+                "recall": checkpoint_100_recall_improvement,
+                "precision": checkpoint_100_precision_improvement,
+                "f1_score": checkpoint_100_f1_improvement,
+                "rmse": checkpoint_100_rmse_improvement,
+                "mae": checkpoint_100_mae_improvement,
+                "r_squared": checkpoint_100_r_squared_improvement
+            },
+            "checkpoint_200": {
+                "accuracy": checkpoint_200_accuracy_improvement,
+                "recall": checkpoint_200_recall_improvement,
+                "precision": checkpoint_200_precision_improvement,
+                "f1_score": checkpoint_200_f1_improvement,
+                "rmse": checkpoint_200_rmse_improvement,
+                "mae": checkpoint_200_mae_improvement,
+                "r_squared": checkpoint_200_r_squared_improvement
+            },
+            "checkpoint_300": {
+                "accuracy": checkpoint_300_accuracy_improvement,
+                "recall": checkpoint_300_recall_improvement,
+                "precision": checkpoint_300_precision_improvement,
+                "f1_score": checkpoint_300_f1_improvement,
+                "rmse": checkpoint_300_rmse_improvement,
+                "mae": checkpoint_300_mae_improvement,
+                "r_squared": checkpoint_300_r_squared_improvement
+            },
+            "checkpoint_400": {
+                "accuracy": checkpoint_400_accuracy_improvement,
+                "recall": checkpoint_400_recall_improvement,
+                "precision": checkpoint_400_precision_improvement,
+                "f1_score": checkpoint_400_f1_improvement,
+                "rmse": checkpoint_400_rmse_improvement,
+                "mae": checkpoint_400_mae_improvement,
+                "r_squared": checkpoint_400_r_squared_improvement
             }
         }
     }
@@ -481,31 +768,70 @@ def main():
                 "predictions": original_predictions,
                 "parsed_predictions": [(int(o), float(p)) for o, p in original_parsed]
             },
-            "few_shot_model": {
+            "checkpoint_50": {
                 "metrics": {
-                    "accuracy": float(few_shot_metrics["accuracy"]),
-                    "recall": float(few_shot_metrics["recall"]),
-                    "precision": float(few_shot_metrics["precision"]),
-                    "f1_score": float(few_shot_metrics["f1_score"]),
-                    "rmse": float(few_shot_metrics["rmse"]),
-                    "mae": float(few_shot_metrics["mae"]),
-                    "r_squared": float(few_shot_metrics["r_squared"])
+                    "accuracy": float(checkpoint_50_metrics["accuracy"]),
+                    "recall": float(checkpoint_50_metrics["recall"]),
+                    "precision": float(checkpoint_50_metrics["precision"]),
+                    "f1_score": float(checkpoint_50_metrics["f1_score"]),
+                    "rmse": float(checkpoint_50_metrics["rmse"]),
+                    "mae": float(checkpoint_50_metrics["mae"]),
+                    "r_squared": float(checkpoint_50_metrics["r_squared"])
                 },
-                "predictions": few_shot_predictions,
-                "parsed_predictions": [(int(o), float(p)) for o, p in few_shot_parsed]
+                "predictions": checkpoint_50_predictions,
+                "parsed_predictions": [(int(o), float(p)) for o, p in checkpoint_50_parsed]
             },
-            "finetuned_model": {
+            "checkpoint_100": {
                 "metrics": {
-                    "accuracy": float(finetuned_metrics["accuracy"]),
-                    "recall": float(finetuned_metrics["recall"]),
-                    "precision": float(finetuned_metrics["precision"]),
-                    "f1_score": float(finetuned_metrics["f1_score"]),
-                    "rmse": float(finetuned_metrics["rmse"]),
-                    "mae": float(finetuned_metrics["mae"]),
-                    "r_squared": float(finetuned_metrics["r_squared"])
+                    "accuracy": float(checkpoint_100_metrics["accuracy"]),
+                    "recall": float(checkpoint_100_metrics["recall"]),
+                    "precision": float(checkpoint_100_metrics["precision"]),
+                    "f1_score": float(checkpoint_100_metrics["f1_score"]),
+                    "rmse": float(checkpoint_100_metrics["rmse"]),
+                    "mae": float(checkpoint_100_metrics["mae"]),
+                    "r_squared": float(checkpoint_100_metrics["r_squared"])
                 },
-                "predictions": finetuned_predictions,
-                "parsed_predictions": [(int(o), float(p)) for o, p in finetuned_parsed]
+                "predictions": checkpoint_100_predictions,
+                "parsed_predictions": [(int(o), float(p)) for o, p in checkpoint_100_parsed]
+            },
+            "checkpoint_200": {
+                "metrics": {
+                    "accuracy": float(checkpoint_200_metrics["accuracy"]),
+                    "recall": float(checkpoint_200_metrics["recall"]),
+                    "precision": float(checkpoint_200_metrics["precision"]),
+                    "f1_score": float(checkpoint_200_metrics["f1_score"]),
+                    "rmse": float(checkpoint_200_metrics["rmse"]),
+                    "mae": float(checkpoint_200_metrics["mae"]),
+                    "r_squared": float(checkpoint_200_metrics["r_squared"])
+                },
+                "predictions": checkpoint_200_predictions,
+                "parsed_predictions": [(int(o), float(p)) for o, p in checkpoint_200_parsed]
+            },
+            "checkpoint_300": {
+                "metrics": {
+                    "accuracy": float(checkpoint_300_metrics["accuracy"]),
+                    "recall": float(checkpoint_300_metrics["recall"]),
+                    "precision": float(checkpoint_300_metrics["precision"]),
+                    "f1_score": float(checkpoint_300_metrics["f1_score"]),
+                    "rmse": float(checkpoint_300_metrics["rmse"]),
+                    "mae": float(checkpoint_300_metrics["mae"]),
+                    "r_squared": float(checkpoint_300_metrics["r_squared"])
+                },
+                "predictions": checkpoint_300_predictions,
+                "parsed_predictions": [(int(o), float(p)) for o, p in checkpoint_300_parsed]
+            },
+            "checkpoint_400": {
+                "metrics": {
+                    "accuracy": float(checkpoint_400_metrics["accuracy"]),
+                    "recall": float(checkpoint_400_metrics["recall"]),
+                    "precision": float(checkpoint_400_metrics["precision"]),
+                    "f1_score": float(checkpoint_400_metrics["f1_score"]),
+                    "rmse": float(checkpoint_400_metrics["rmse"]),
+                    "mae": float(checkpoint_400_metrics["mae"]),
+                    "r_squared": float(checkpoint_400_metrics["r_squared"])
+                },
+                "predictions": checkpoint_400_predictions,
+                "parsed_predictions": [(int(o), float(p)) for o, p in checkpoint_400_parsed]
             }
         }
         json.dump(json_results, f, ensure_ascii=False, indent=2)
@@ -513,7 +839,7 @@ def main():
     print("\n评估结果已保存到 evaluation_results.json")
     
     # 绘制评估指标柱状图
-    plot_evaluation_metrics(original_metrics, few_shot_metrics, finetuned_metrics)
+    plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_100_metrics, checkpoint_200_metrics, checkpoint_300_metrics, checkpoint_400_metrics)
 
 if __name__ == "__main__":
     main()
