@@ -15,55 +15,55 @@ from peft import PeftModel
 
 def load_json_test_data(json_test_path):
     """
-    加载JSON格式的测试数据
+    Load JSON format test data
     """
-    print(f"正在读取JSON测试数据: {json_test_path}...")
+    print(f"Reading JSON test data: {json_test_path}...")
     with open(json_test_path, 'r', encoding='utf-8') as f:
         test_data = json.load(f)
-    print(f"成功读取JSON测试数据，共 {len(test_data)} 条记录")
+    print(f"Successfully read JSON test data, total {len(test_data)} records")
     return test_data
 
 def prepare_json_prompts(json_test_data):
     """
-    准备用于评估的提示和标签（从JSON数据）
+    Prepare prompts and labels for evaluation (from JSON data)
     """
     prompts = []
     labels = []
     
-    # 用于从模型回复中解析真实标签的正则表达式
+    # Regular expression to parse true labels from model responses
     label_pattern = r"(\d+)(?:\s*,\s*|\s+)(\d+(?:\.\d+)?)"
     
     for item in tqdm(json_test_data):
         messages = item["messages"]
         if len(messages) >= 2:
-            # 用户查询作为提示
+            # User query as prompt
             user_message = next((msg["content"] for msg in messages if msg["role"] == "user"), None)
             if user_message:
                 prompts.append(user_message)
             
-            # 如果有助手回复，从中提取标签
+            # If there's an assistant reply, extract labels from it
             assistant_message = next((msg["content"] for msg in messages if msg["role"] == "assistant"), None)
             if assistant_message:
                 matches = re.findall(label_pattern, assistant_message)
                 if matches:
-                    # 提取第一个匹配的结果
+                    # Extract the first match
                     overload, power = matches[0]
                     labels.append((int(overload), float(power)))
                 else:
-                    # 如果没有匹配标准格式，尝试直接查找数字
+                    # If no standard format match, try to find numbers directly
                     numbers = re.findall(r"\d+(?:\.\d+)?", assistant_message)
                     if len(numbers) >= 2:
                         labels.append((int(float(numbers[0])), float(numbers[1])))
                     else:
-                        # 如果仍找不到，添加默认值
-                        print(f"警告: 无法从回复中解析标签: {assistant_message}")
+                        # If still can't find, add default values
+                        print(f"Warning: Unable to parse labels from reply: {assistant_message}")
                         labels.append((0, 0.0))
     
     return prompts, labels
 
 def generate_predictions(model, tokenizer, prompts, max_new_tokens=50, batch_size=8):
     """
-    使用模型生成预测结果
+    Generate predictions using the model
     """
     predictions = []
     
@@ -79,9 +79,9 @@ def generate_predictions(model, tokenizer, prompts, max_new_tokens=50, batch_siz
             )
             
         for j, output in enumerate(outputs):
-            # 解码生成的文本
+            # Decode generated text
             generated_text = tokenizer.decode(output, skip_special_tokens=True)
-            # 从生成的文本中截取模型的回答部分
+            # Extract the model's answer part from the generated text
             response = generated_text[len(batch_prompts[j]):]
             predictions.append(response.strip())
     
@@ -89,77 +89,81 @@ def generate_predictions(model, tokenizer, prompts, max_new_tokens=50, batch_siz
 
 def parse_predictions(predictions):
     """
-    从模型的文本输出中解析过载状态和功率消耗的预测值
+    Parse overload status and power consumption predictions from model's text output
     """
     parsed_results = []
     
     for pred in predictions:
-        # 使用正则表达式匹配数字
+        # Use regular expression to match numbers
         matches = re.findall(r"(\d+)(?:\s*,\s*|\s+)(\d+(?:\.\d+)?)", pred)
         if matches:
-            # 提取第一个匹配的结果
+            # Extract the first match
             overload, power = matches[0]
             parsed_results.append((int(overload), float(power)))
         else:
-            # 如果没有匹配到格式，尝试直接查找数字
+            # If no format match, try to find numbers directly
             numbers = re.findall(r"\d+(?:\.\d+)?", pred)
             if len(numbers) >= 2:
                 parsed_results.append((int(float(numbers[0])), float(numbers[1])))
             else:
-                # 如果仍找不到，添加默认值
+                # If still can't find, add default values
                 parsed_results.append((0, 0.0))
     
     return parsed_results
 
 def calculate_metrics(true_values, predicted_values):
     """
-    计算评估指标：准确率、召回率、F1分数、RMSE、MAE和R平方分数
+    Calculate evaluation metrics: Accuracy, Recall, Precision, F1 Score, RMSE, MAE, and R-squared
     """
-    # 提取过载状态和功率消耗
+    # Extract overload status and power consumption
     y_true_overload = np.array([x[0] for x in true_values])
     y_pred_overload = np.array([x[0] for x in predicted_values])
     
     y_true_power = np.array([x[1] for x in true_values])
     y_pred_power = np.array([x[1] for x in predicted_values])
     
-    # 计算过载状态的准确率
+    # Calculate accuracy for overload status
     accuracy = np.mean(y_true_overload == y_pred_overload)
     
-    # 计算过载状态的召回率和F1分数
-    # 过载状态为1的情况下的召回率（真正例 / (真正例 + 假负例)）
+    # Calculate recall and precision for overload status
+    # True positives: cases where both true and predicted values are 1
     true_positives = np.sum((y_true_overload == 1) & (y_pred_overload == 1))
+    # False negatives: cases where true value is 1 but predicted value is 0
     false_negatives = np.sum((y_true_overload == 1) & (y_pred_overload == 0))
+    # False positives: cases where true value is 0 but predicted value is 1
     false_positives = np.sum((y_true_overload == 0) & (y_pred_overload == 1))
+    # True negatives: cases where both true and predicted values are 0
+    true_negatives = np.sum((y_true_overload == 0) & (y_pred_overload == 0))
     
-    # 避免除零错误
+    # Calculate recall (true positives / (true positives + false negatives))
     if true_positives + false_negatives > 0:
         recall = true_positives / (true_positives + false_negatives)
     else:
         recall = 0.0
     
-    # 计算精确率 (真正例 / (真正例 + 假正例))
+    # Calculate precision (true positives / (true positives + false positives))
     if true_positives + false_positives > 0:
         precision = true_positives / (true_positives + false_positives)
     else:
         precision = 0.0
     
-    # 计算F1分数
+    # Calculate F1 score (2 * (precision * recall) / (precision + recall))
     if precision + recall > 0:
         f1_score = 2 * (precision * recall) / (precision + recall)
     else:
         f1_score = 0.0
     
-    # 计算功率消耗的RMSE和MAE
+    # Calculate RMSE and MAE for power consumption
     rmse = np.sqrt(mean_squared_error(y_true_power, y_pred_power))
     mae = mean_absolute_error(y_true_power, y_pred_power)
     
-    # 计算R平方分数（决定系数）
-    # R² = 1 - (残差平方和 / 总平方和)
+    # Calculate R-squared (coefficient of determination)
+    # R² = 1 - (sum of squared residuals / total sum of squares)
     y_true_mean = np.mean(y_true_power)
-    ss_total = np.sum((y_true_power - y_true_mean) ** 2)  # 总平方和
-    ss_residual = np.sum((y_true_power - y_pred_power) ** 2)  # 残差平方和
+    ss_total = np.sum((y_true_power - y_true_mean) ** 2)  # Total sum of squares
+    ss_residual = np.sum((y_true_power - y_pred_power) ** 2)  # Sum of squared residuals
     
-    # 避免除零错误
+    # Avoid division by zero
     if ss_total > 0:
         r_squared = 1 - (ss_residual / ss_total)
     else:
@@ -177,40 +181,40 @@ def calculate_metrics(true_values, predicted_values):
 
 def evaluate_model(model_name, tokenizer_name, test_prompts, test_labels, is_peft=False, adapter_path=None):
     """
-    评估模型性能
+    Evaluate model performance
     """
-    print(f"\n评估模型: {model_name}")
+    print(f"\nEvaluating model: {model_name}")
     
-    # 加载tokenizer
+    # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
     
-    # 加载模型
+    # Load model
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         trust_remote_code=True
     )
     model.cuda()
     
-    # 如果是微调后的模型，加载LoRA适配器
+    # If it's a fine-tuned model, load the LoRA adapter
     if is_peft and adapter_path:
-        print(f"加载LoRA适配器: {adapter_path}")
+        print(f"Loading LoRA adapter: {adapter_path}")
         model = PeftModel.from_pretrained(model, adapter_path)
     
-    # 生成预测
-    print("生成预测...")
+    # Generate predictions
+    print("Generating predictions...")
     predictions = generate_predictions(model, tokenizer, test_prompts)
     
-    # 解析预测结果
-    print("解析预测结果...")
+    # Parse prediction results
+    print("Parsing prediction results...")
     parsed_predictions = parse_predictions(predictions)
     
-    # 计算评估指标
-    print("计算评估指标...")
+    # Calculate evaluation metrics
+    print("Calculating evaluation metrics...")
     metrics = calculate_metrics(test_labels, parsed_predictions)
     
-    # 清理GPU内存
+    # Clean up GPU memory
     del model
     torch.cuda.empty_cache()
     
@@ -218,20 +222,19 @@ def evaluate_model(model_name, tokenizer_name, test_prompts, test_labels, is_pef
 
 def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_100_metrics, checkpoint_200_metrics, checkpoint_300_metrics, checkpoint_400_metrics):
     """
-    绘制评估指标的柱状图对比
+    Plot bar charts comparing evaluation metrics
     """
-    print("\n正在绘制评估指标柱状图...")
+    print("\nPlotting evaluation metrics bar charts...")
     
-    # 设置中文字体，以正确显示中文
+    # Set font for displaying text
     try:
-        plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
-        plt.rcParams['axes.unicode_minus'] = False    # 用来正常显示负号
+        plt.rcParams['axes.unicode_minus'] = False  # For displaying minus sign correctly
     except:
-        print("警告: 无法设置中文字体，图表中的中文可能无法正确显示")
+        print("Warning: Unable to set font, text may not display correctly")
     
-    # 分两组绘制图表：过载状态指标和功率消耗指标
-    # 1. 过载状态指标（准确率、召回率、精确率、F1分数）
-    overload_metrics = ['准确率', '召回率', '精确率', 'F1分数']
+    # Plot two groups of charts: overload status metrics and power consumption metrics
+    # 1. Overload status metrics (Accuracy, Recall, Precision, F1 Score)
+    overload_metrics = ['Accuracy', 'Recall', 'Precision', 'F1 Score']
     original_overload_values = [
         original_metrics['accuracy'], 
         original_metrics['recall'], 
@@ -269,7 +272,7 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
         checkpoint_400_metrics['f1_score']
     ]
     
-    # 2. 功率消耗指标（RMSE、MAE和R平方分数）
+    # 2. Power consumption metrics (RMSE, MAE, and R-squared)
     power_metrics = ['RMSE', 'MAE', 'R²']
     original_power_values = [original_metrics['rmse'], original_metrics['mae'], original_metrics['r_squared']]
     checkpoint_50_power_values = [checkpoint_50_metrics['rmse'], checkpoint_50_metrics['mae'], checkpoint_50_metrics['r_squared']]
@@ -278,12 +281,12 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
     checkpoint_300_power_values = [checkpoint_300_metrics['rmse'], checkpoint_300_metrics['mae'], checkpoint_300_metrics['r_squared']]
     checkpoint_400_power_values = [checkpoint_400_metrics['rmse'], checkpoint_400_metrics['mae'], checkpoint_400_metrics['r_squared']]
     
-    # 创建一个包含两个子图的图表
+    # Create a figure with two subplots
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 12))
     
-    # 绘制过载状态指标
-    x1 = np.arange(len(overload_metrics))  # 标签位置
-    width = 0.14  # 柱状图宽度
+    # Plot overload status metrics
+    x1 = np.arange(len(overload_metrics))  # Label positions
+    width = 0.14  # Width of the bars
     
     rects1_1 = ax1.bar(x1 - 2.5*width, original_overload_values, width, label='base', color='skyblue')
     rects1_2 = ax1.bar(x1 - 1.5*width, checkpoint_50_overload_values, width, label='checkpoint-50', color='orange')
@@ -292,16 +295,16 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
     rects1_5 = ax1.bar(x1 + 1.5*width, checkpoint_300_overload_values, width, label='checkpoint-300', color='mediumpurple')
     rects1_6 = ax1.bar(x1 + 2.5*width, checkpoint_400_overload_values, width, label='checkpoint-400', color='gold')
     
-    # 添加标题和坐标轴标签
-    ax1.set_title('过载状态预测指标对比', fontsize=16)
-    ax1.set_ylabel('指标值', fontsize=14)
+    # Add titles and axis labels
+    ax1.set_title('Overload Status Prediction Metrics Comparison', fontsize=16)
+    ax1.set_ylabel('Metric Value', fontsize=14)
     ax1.set_xticks(x1)
     ax1.set_xticklabels(overload_metrics, fontsize=12)
     ax1.legend(fontsize=12)
-    ax1.set_ylim(0, 1.0)  # 设置y轴范围为0-1，因为这些指标都是比率
+    ax1.set_ylim(0, 1.0)  # Set y-axis range to 0-1, as these metrics are ratios
     
-    # 绘制功率消耗指标
-    x2 = np.arange(len(power_metrics))  # 标签位置
+    # Plot power consumption metrics
+    x2 = np.arange(len(power_metrics))  # Label positions
     
     rects2_1 = ax2.bar(x2 - 2.5*width, original_power_values, width, label='base', color='skyblue')
     rects2_2 = ax2.bar(x2 - 1.5*width, checkpoint_50_power_values, width, label='checkpoint-50', color='orange')
@@ -310,20 +313,20 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
     rects2_5 = ax2.bar(x2 + 1.5*width, checkpoint_300_power_values, width, label='checkpoint-300', color='mediumpurple')
     rects2_6 = ax2.bar(x2 + 2.5*width, checkpoint_400_power_values, width, label='checkpoint-400', color='gold')
     
-    # 添加标题和坐标轴标签
-    ax2.set_title('功率消耗预测指标对比', fontsize=16)
-    ax2.set_ylabel('指标值', fontsize=14)
+    # Add titles and axis labels
+    ax2.set_title('Power Consumption Prediction Metrics Comparison', fontsize=16)
+    ax2.set_ylabel('Metric Value', fontsize=14)
     ax2.set_xticks(x2)
     ax2.set_xticklabels(power_metrics, fontsize=12)
     ax2.legend(fontsize=12)
     
-    # 在柱状图上添加数值标签
+    # Add value labels on the bars
     def autolabel(rects, ax):
         for rect in rects:
             height = rect.get_height()
             ax.annotate('{:.4f}'.format(height),
                         xy=(rect.get_x() + rect.get_width() / 2, height),
-                        xytext=(0, 3),  # 3点垂直偏移
+                        xytext=(0, 3),  # 3 points vertical offset
                         textcoords="offset points",
                         ha='center', va='bottom', fontsize=8)
     
@@ -340,20 +343,20 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
     autolabel(rects2_5, ax2)
     autolabel(rects2_6, ax2)
     
-    # 调整布局
+    # Adjust layout
     fig.tight_layout()
     
-    # 保存图表
+    # Save the chart
     plt.savefig('model_comparison.png', dpi=300, bbox_inches='tight')
-    print("评估指标柱状图已保存为 model_comparison.png")
+    print("Evaluation metrics bar chart saved as model_comparison.png")
     
-    # 绘制训练步数与性能指标的关系曲线图
+    # Plot training steps vs. performance metrics line charts
     plt.figure(figsize=(20, 15))
     
-    # 设置训练步数
-    steps = [0, 50, 100, 200, 300, 400]  # 0代表原始模型
+    # Set training steps
+    steps = [0, 50, 100, 200, 300, 400]  # 0 represents the original model
     
-    # 1. 过载状态准确率曲线
+    # 1. Overload status accuracy curve
     plt.subplot(3, 2, 1)
     accuracy_values = [
         original_metrics['accuracy'],
@@ -364,12 +367,12 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
         checkpoint_400_metrics['accuracy']
     ]
     plt.plot(steps, accuracy_values, 'o-', linewidth=2, markersize=8)
-    plt.title('训练步数与过载状态准确率关系', fontsize=14)
-    plt.xlabel('训练步数', fontsize=12)
-    plt.ylabel('准确率', fontsize=12)
+    plt.title('Training Steps vs. Overload Status Accuracy', fontsize=14)
+    plt.xlabel('Training Steps', fontsize=12)
+    plt.ylabel('Accuracy', fontsize=12)
     plt.grid(True)
     
-    # 2. 过载状态F1分数曲线
+    # 2. Overload status F1 score curve
     plt.subplot(3, 2, 2)
     f1_values = [
         original_metrics['f1_score'],
@@ -380,12 +383,12 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
         checkpoint_400_metrics['f1_score']
     ]
     plt.plot(steps, f1_values, 'o-', linewidth=2, markersize=8, color='orange')
-    plt.title('训练步数与过载状态F1分数关系', fontsize=14)
-    plt.xlabel('训练步数', fontsize=12)
-    plt.ylabel('F1分数', fontsize=12)
+    plt.title('Training Steps vs. Overload Status F1 Score', fontsize=14)
+    plt.xlabel('Training Steps', fontsize=12)
+    plt.ylabel('F1 Score', fontsize=12)
     plt.grid(True)
     
-    # 3. 功率消耗RMSE曲线
+    # 3. Power consumption RMSE curve
     plt.subplot(3, 2, 3)
     rmse_values = [
         original_metrics['rmse'],
@@ -396,12 +399,12 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
         checkpoint_400_metrics['rmse']
     ]
     plt.plot(steps, rmse_values, 'o-', linewidth=2, markersize=8, color='green')
-    plt.title('训练步数与功率消耗RMSE关系', fontsize=14)
-    plt.xlabel('训练步数', fontsize=12)
+    plt.title('Training Steps vs. Power Consumption RMSE', fontsize=14)
+    plt.xlabel('Training Steps', fontsize=12)
     plt.ylabel('RMSE', fontsize=12)
     plt.grid(True)
     
-    # 4. 功率消耗MAE曲线
+    # 4. Power consumption MAE curve
     plt.subplot(3, 2, 4)
     mae_values = [
         original_metrics['mae'],
@@ -412,12 +415,12 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
         checkpoint_400_metrics['mae']
     ]
     plt.plot(steps, mae_values, 'o-', linewidth=2, markersize=8, color='red')
-    plt.title('训练步数与功率消耗MAE关系', fontsize=14)
-    plt.xlabel('训练步数', fontsize=12)
+    plt.title('Training Steps vs. Power Consumption MAE', fontsize=14)
+    plt.xlabel('Training Steps', fontsize=12)
     plt.ylabel('MAE', fontsize=12)
     plt.grid(True)
     
-    # 5. 功率消耗R平方分数曲线
+    # 5. Power consumption R-squared curve
     plt.subplot(3, 2, 5)
     r_squared_values = [
         original_metrics['r_squared'],
@@ -428,44 +431,44 @@ def plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_
         checkpoint_400_metrics['r_squared']
     ]
     plt.plot(steps, r_squared_values, 'o-', linewidth=2, markersize=8, color='purple')
-    plt.title('训练步数与功率消耗R平方分数关系', fontsize=14)
-    plt.xlabel('训练步数', fontsize=12)
-    plt.ylabel('R平方分数', fontsize=12)
+    plt.title('Training Steps vs. Power Consumption R-squared', fontsize=14)
+    plt.xlabel('Training Steps', fontsize=12)
+    plt.ylabel('R-squared', fontsize=12)
     plt.grid(True)
     
-    # 调整布局
+    # Adjust layout
     plt.tight_layout()
     
-    # 保存图表
+    # Save the chart
     plt.savefig('training_progress.png', dpi=300, bbox_inches='tight')
-    print("训练进度曲线图已保存为 training_progress.png")
+    print("Training progress line chart saved as training_progress.png")
 
 def main():
-    # 配置参数
-    original_model_name = "meta-llama/Llama-3.2-1B-Instruct"  # 与训练脚本中使用的模型一致
-    checkpoint_50_adapter_path = "checkpoints/checkpoint-50"  # 50步检查点模型的保存路径
-    checkpoint_100_adapter_path = "checkpoints/checkpoint-100"  # 100步检查点模型的保存路径
-    checkpoint_200_adapter_path = "checkpoints/checkpoint-200"  # 200步检查点模型的保存路径
-    checkpoint_300_adapter_path = "checkpoints/checkpoint-300"  # 300步检查点模型的保存路径
-    checkpoint_400_adapter_path = "checkpoints/checkpoint-400"  # 400步检查点模型的保存路径
-    json_test_data_path = "sft_data_test.json"  # JSON测试数据路径
+    # Configuration parameters
+    original_model_name = "meta-llama/Llama-3.2-1B-Instruct"  # Same as the model used in the training script
+    checkpoint_50_adapter_path = "checkpoints/checkpoint-50"  # Save path for 50-step checkpoint model
+    checkpoint_100_adapter_path = "checkpoints/checkpoint-100"  # Save path for 100-step checkpoint model
+    checkpoint_200_adapter_path = "checkpoints/checkpoint-200"  # Save path for 200-step checkpoint model
+    checkpoint_300_adapter_path = "checkpoints/checkpoint-300"  # Save path for 300-step checkpoint model
+    checkpoint_400_adapter_path = "checkpoints/checkpoint-400"  # Save path for 400-step checkpoint model
+    json_test_data_path = "sft_data_test.json"  # JSON test data path
     
-    # 打印评估配置
-    print("=== 电网安全预测模型评估 ===")
-    print(f"原始模型: {original_model_name}")
-    print(f"检查点-50步适配器: {checkpoint_50_adapter_path}")
-    print(f"检查点-100步适配器: {checkpoint_100_adapter_path}")
-    print(f"检查点-200步适配器: {checkpoint_200_adapter_path}")
-    print(f"检查点-300步适配器: {checkpoint_300_adapter_path}")
-    print(f"检查点-400步适配器: {checkpoint_400_adapter_path}")
+    # Print evaluation configuration
+    print("=== Power Grid Safety Prediction Model Evaluation ===")
+    print(f"Original model: {original_model_name}")
+    print(f"Checkpoint-50 adapter: {checkpoint_50_adapter_path}")
+    print(f"Checkpoint-100 adapter: {checkpoint_100_adapter_path}")
+    print(f"Checkpoint-200 adapter: {checkpoint_200_adapter_path}")
+    print(f"Checkpoint-300 adapter: {checkpoint_300_adapter_path}")
+    print(f"Checkpoint-400 adapter: {checkpoint_400_adapter_path}")
     
 
     test_data = load_json_test_data(json_test_data_path)
     test_prompts, test_labels = prepare_json_prompts(test_data)
     
-    print(f"生成 {len(test_prompts)} 个测试样本")
+    print(f"Generated {len(test_prompts)} test samples")
     
-    # 评估原始模型
+    # Evaluate original model
     original_metrics, original_predictions, original_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
@@ -473,7 +476,7 @@ def main():
         test_labels
     )
     
-    # 评估50步检查点模型
+    # Evaluate 50-step checkpoint model
     checkpoint_50_metrics, checkpoint_50_predictions, checkpoint_50_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
@@ -483,7 +486,7 @@ def main():
         adapter_path=checkpoint_50_adapter_path
     )
     
-    # 评估100步检查点模型
+    # Evaluate 100-step checkpoint model
     checkpoint_100_metrics, checkpoint_100_predictions, checkpoint_100_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
@@ -493,7 +496,7 @@ def main():
         adapter_path=checkpoint_100_adapter_path
     )
     
-    # 评估200步检查点模型
+    # Evaluate 200-step checkpoint model
     checkpoint_200_metrics, checkpoint_200_predictions, checkpoint_200_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
@@ -503,7 +506,7 @@ def main():
         adapter_path=checkpoint_200_adapter_path
     )
     
-    # 评估300步检查点模型
+    # Evaluate 300-step checkpoint model
     checkpoint_300_metrics, checkpoint_300_predictions, checkpoint_300_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
@@ -513,7 +516,7 @@ def main():
         adapter_path=checkpoint_300_adapter_path
     )
     
-    # 评估400步检查点模型
+    # Evaluate 400-step checkpoint model
     checkpoint_400_metrics, checkpoint_400_predictions, checkpoint_400_parsed = evaluate_model(
         original_model_name, 
         original_model_name, 
@@ -523,64 +526,64 @@ def main():
         adapter_path=checkpoint_400_adapter_path
     )
     
-    # 打印评估结果
-    print("\n=== 评估结果 ===")
-    print("原始模型:")
-    print(f"  过载状态准确率: {original_metrics['accuracy']:.4f}")
-    print(f"  过载状态召回率: {original_metrics['recall']:.4f}")
-    print(f"  过载状态精确率: {original_metrics['precision']:.4f}")
-    print(f"  过载状态F1分数: {original_metrics['f1_score']:.4f}")
-    print(f"  功率消耗RMSE: {original_metrics['rmse']:.4f}")
-    print(f"  功率消耗MAE: {original_metrics['mae']:.4f}")
-    print(f"  功率消耗R平方分数: {original_metrics['r_squared']:.4f}")
+    # Print evaluation metrics
+    print("\n=== Evaluation Metrics ===")
+    print("Original model:")
+    print(f"  Overload Status Accuracy: {original_metrics['accuracy']:.4f}")
+    print(f"  Overload Status Recall: {original_metrics['recall']:.4f}")
+    print(f"  Overload Status Precision: {original_metrics['precision']:.4f}")
+    print(f"  Overload Status F1 Score: {original_metrics['f1_score']:.4f}")
+    print(f"  Power Consumption RMSE: {original_metrics['rmse']:.4f}")
+    print(f"  Power Consumption MAE: {original_metrics['mae']:.4f}")
+    print(f"  Power Consumption R-squared: {original_metrics['r_squared']:.4f}")
     
-    print("\n检查点-50步模型:")
-    print(f"  过载状态准确率: {checkpoint_50_metrics['accuracy']:.4f}")
-    print(f"  过载状态召回率: {checkpoint_50_metrics['recall']:.4f}")
-    print(f"  过载状态精确率: {checkpoint_50_metrics['precision']:.4f}")
-    print(f"  过载状态F1分数: {checkpoint_50_metrics['f1_score']:.4f}")
-    print(f"  功率消耗RMSE: {checkpoint_50_metrics['rmse']:.4f}")
-    print(f"  功率消耗MAE: {checkpoint_50_metrics['mae']:.4f}")
-    print(f"  功率消耗R平方分数: {checkpoint_50_metrics['r_squared']:.4f}")
+    print("\nCheckpoint-50 model:")
+    print(f"  Overload Status Accuracy: {checkpoint_50_metrics['accuracy']:.4f}")
+    print(f"  Overload Status Recall: {checkpoint_50_metrics['recall']:.4f}")
+    print(f"  Overload Status Precision: {checkpoint_50_metrics['precision']:.4f}")
+    print(f"  Overload Status F1 Score: {checkpoint_50_metrics['f1_score']:.4f}")
+    print(f"  Power Consumption RMSE: {checkpoint_50_metrics['rmse']:.4f}")
+    print(f"  Power Consumption MAE: {checkpoint_50_metrics['mae']:.4f}")
+    print(f"  Power Consumption R-squared: {checkpoint_50_metrics['r_squared']:.4f}")
     
-    print("\n检查点-100步模型:")
-    print(f"  过载状态准确率: {checkpoint_100_metrics['accuracy']:.4f}")
-    print(f"  过载状态召回率: {checkpoint_100_metrics['recall']:.4f}")
-    print(f"  过载状态精确率: {checkpoint_100_metrics['precision']:.4f}")
-    print(f"  过载状态F1分数: {checkpoint_100_metrics['f1_score']:.4f}")
-    print(f"  功率消耗RMSE: {checkpoint_100_metrics['rmse']:.4f}")
-    print(f"  功率消耗MAE: {checkpoint_100_metrics['mae']:.4f}")
-    print(f"  功率消耗R平方分数: {checkpoint_100_metrics['r_squared']:.4f}")
+    print("\nCheckpoint-100 model:")
+    print(f"  Overload Status Accuracy: {checkpoint_100_metrics['accuracy']:.4f}")
+    print(f"  Overload Status Recall: {checkpoint_100_metrics['recall']:.4f}")
+    print(f"  Overload Status Precision: {checkpoint_100_metrics['precision']:.4f}")
+    print(f"  Overload Status F1 Score: {checkpoint_100_metrics['f1_score']:.4f}")
+    print(f"  Power Consumption RMSE: {checkpoint_100_metrics['rmse']:.4f}")
+    print(f"  Power Consumption MAE: {checkpoint_100_metrics['mae']:.4f}")
+    print(f"  Power Consumption R-squared: {checkpoint_100_metrics['r_squared']:.4f}")
     
-    print("\n检查点-200步模型:")
-    print(f"  过载状态准确率: {checkpoint_200_metrics['accuracy']:.4f}")
-    print(f"  过载状态召回率: {checkpoint_200_metrics['recall']:.4f}")
-    print(f"  过载状态精确率: {checkpoint_200_metrics['precision']:.4f}")
-    print(f"  过载状态F1分数: {checkpoint_200_metrics['f1_score']:.4f}")
-    print(f"  功率消耗RMSE: {checkpoint_200_metrics['rmse']:.4f}")
-    print(f"  功率消耗MAE: {checkpoint_200_metrics['mae']:.4f}")
-    print(f"  功率消耗R平方分数: {checkpoint_200_metrics['r_squared']:.4f}")
+    print("\nCheckpoint-200 model:")
+    print(f"  Overload Status Accuracy: {checkpoint_200_metrics['accuracy']:.4f}")
+    print(f"  Overload Status Recall: {checkpoint_200_metrics['recall']:.4f}")
+    print(f"  Overload Status Precision: {checkpoint_200_metrics['precision']:.4f}")
+    print(f"  Overload Status F1 Score: {checkpoint_200_metrics['f1_score']:.4f}")
+    print(f"  Power Consumption RMSE: {checkpoint_200_metrics['rmse']:.4f}")
+    print(f"  Power Consumption MAE: {checkpoint_200_metrics['mae']:.4f}")
+    print(f"  Power Consumption R-squared: {checkpoint_200_metrics['r_squared']:.4f}")
     
-    print("\n检查点-300步模型:")
-    print(f"  过载状态准确率: {checkpoint_300_metrics['accuracy']:.4f}")
-    print(f"  过载状态召回率: {checkpoint_300_metrics['recall']:.4f}")
-    print(f"  过载状态精确率: {checkpoint_300_metrics['precision']:.4f}")
-    print(f"  过载状态F1分数: {checkpoint_300_metrics['f1_score']:.4f}")
-    print(f"  功率消耗RMSE: {checkpoint_300_metrics['rmse']:.4f}")
-    print(f"  功率消耗MAE: {checkpoint_300_metrics['mae']:.4f}")
-    print(f"  功率消耗R平方分数: {checkpoint_300_metrics['r_squared']:.4f}")
+    print("\nCheckpoint-300 model:")
+    print(f"  Overload Status Accuracy: {checkpoint_300_metrics['accuracy']:.4f}")
+    print(f"  Overload Status Recall: {checkpoint_300_metrics['recall']:.4f}")
+    print(f"  Overload Status Precision: {checkpoint_300_metrics['precision']:.4f}")
+    print(f"  Overload Status F1 Score: {checkpoint_300_metrics['f1_score']:.4f}")
+    print(f"  Power Consumption RMSE: {checkpoint_300_metrics['rmse']:.4f}")
+    print(f"  Power Consumption MAE: {checkpoint_300_metrics['mae']:.4f}")
+    print(f"  Power Consumption R-squared: {checkpoint_300_metrics['r_squared']:.4f}")
     
-    print("\n检查点-400步模型:")
-    print(f"  过载状态准确率: {checkpoint_400_metrics['accuracy']:.4f}")
-    print(f"  过载状态召回率: {checkpoint_400_metrics['recall']:.4f}")
-    print(f"  过载状态精确率: {checkpoint_400_metrics['precision']:.4f}")
-    print(f"  过载状态F1分数: {checkpoint_400_metrics['f1_score']:.4f}")
-    print(f"  功率消耗RMSE: {checkpoint_400_metrics['rmse']:.4f}")
-    print(f"  功率消耗MAE: {checkpoint_400_metrics['mae']:.4f}")
-    print(f"  功率消耗R平方分数: {checkpoint_400_metrics['r_squared']:.4f}")
+    print("\nCheckpoint-400 model:")
+    print(f"  Overload Status Accuracy: {checkpoint_400_metrics['accuracy']:.4f}")
+    print(f"  Overload Status Recall: {checkpoint_400_metrics['recall']:.4f}")
+    print(f"  Overload Status Precision: {checkpoint_400_metrics['precision']:.4f}")
+    print(f"  Overload Status F1 Score: {checkpoint_400_metrics['f1_score']:.4f}")
+    print(f"  Power Consumption RMSE: {checkpoint_400_metrics['rmse']:.4f}")
+    print(f"  Power Consumption MAE: {checkpoint_400_metrics['mae']:.4f}")
+    print(f"  Power Consumption R-squared: {checkpoint_400_metrics['r_squared']:.4f}")
     
-    # 计算各个检查点模型相对于原始模型的性能提升百分比
-    # 50步检查点
+    # Calculate performance improvement percentages relative to the original model
+    # Checkpoint-50
     checkpoint_50_accuracy_improvement = ((checkpoint_50_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
     checkpoint_50_recall_improvement = ((checkpoint_50_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
     checkpoint_50_precision_improvement = ((checkpoint_50_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
@@ -589,7 +592,7 @@ def main():
     checkpoint_50_mae_improvement = ((original_metrics['mae'] - checkpoint_50_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
     checkpoint_50_r_squared_improvement = ((checkpoint_50_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
     
-    # 100步检查点
+    # Checkpoint-100
     checkpoint_100_accuracy_improvement = ((checkpoint_100_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
     checkpoint_100_recall_improvement = ((checkpoint_100_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
     checkpoint_100_precision_improvement = ((checkpoint_100_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
@@ -598,7 +601,7 @@ def main():
     checkpoint_100_mae_improvement = ((original_metrics['mae'] - checkpoint_100_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
     checkpoint_100_r_squared_improvement = ((checkpoint_100_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
     
-    # 200步检查点
+    # Checkpoint-200
     checkpoint_200_accuracy_improvement = ((checkpoint_200_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
     checkpoint_200_recall_improvement = ((checkpoint_200_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
     checkpoint_200_precision_improvement = ((checkpoint_200_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
@@ -607,7 +610,7 @@ def main():
     checkpoint_200_mae_improvement = ((original_metrics['mae'] - checkpoint_200_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
     checkpoint_200_r_squared_improvement = ((checkpoint_200_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
     
-    # 300步检查点
+    # Checkpoint-300
     checkpoint_300_accuracy_improvement = ((checkpoint_300_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
     checkpoint_300_recall_improvement = ((checkpoint_300_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
     checkpoint_300_precision_improvement = ((checkpoint_300_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
@@ -616,7 +619,7 @@ def main():
     checkpoint_300_mae_improvement = ((original_metrics['mae'] - checkpoint_300_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
     checkpoint_300_r_squared_improvement = ((checkpoint_300_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
     
-    # 400步检查点
+    # Checkpoint-400
     checkpoint_400_accuracy_improvement = ((checkpoint_400_metrics['accuracy'] - original_metrics['accuracy']) / original_metrics['accuracy']) * 100 if original_metrics['accuracy'] > 0 else float('inf')
     checkpoint_400_recall_improvement = ((checkpoint_400_metrics['recall'] - original_metrics['recall']) / original_metrics['recall']) * 100 if original_metrics['recall'] > 0 else float('inf')
     checkpoint_400_precision_improvement = ((checkpoint_400_metrics['precision'] - original_metrics['precision']) / original_metrics['precision']) * 100 if original_metrics['precision'] > 0 else float('inf')
@@ -625,53 +628,53 @@ def main():
     checkpoint_400_mae_improvement = ((original_metrics['mae'] - checkpoint_400_metrics['mae']) / original_metrics['mae']) * 100 if original_metrics['mae'] > 0 else float('inf')
     checkpoint_400_r_squared_improvement = ((checkpoint_400_metrics['r_squared'] - original_metrics['r_squared']) / abs(original_metrics['r_squared'])) * 100 if original_metrics['r_squared'] != 0 else float('inf')
     
-    print("\n各检查点模型性能提升:")
-    print("检查点-50步模型:")
-    print(f"  过载状态准确率提升: {checkpoint_50_accuracy_improvement:.2f}%")
-    print(f"  过载状态召回率提升: {checkpoint_50_recall_improvement:.2f}%")
-    print(f"  过载状态精确率提升: {checkpoint_50_precision_improvement:.2f}%")
-    print(f"  过载状态F1分数提升: {checkpoint_50_f1_improvement:.2f}%")
-    print(f"  功率消耗RMSE降低: {checkpoint_50_rmse_improvement:.2f}%")
-    print(f"  功率消耗MAE降低: {checkpoint_50_mae_improvement:.2f}%")
-    print(f"  功率消耗R平方分数提升: {checkpoint_50_r_squared_improvement:.2f}%")
+    print("\nPerformance Improvement of Checkpoint Models:")
+    print("Checkpoint-50 model:")
+    print(f"  Overload Status Accuracy improvement: {checkpoint_50_accuracy_improvement:.2f}%")
+    print(f"  Overload Status Recall improvement: {checkpoint_50_recall_improvement:.2f}%")
+    print(f"  Overload Status Precision improvement: {checkpoint_50_precision_improvement:.2f}%")
+    print(f"  Overload Status F1 Score improvement: {checkpoint_50_f1_improvement:.2f}%")
+    print(f"  Power Consumption RMSE reduction: {checkpoint_50_rmse_improvement:.2f}%")
+    print(f"  Power Consumption MAE reduction: {checkpoint_50_mae_improvement:.2f}%")
+    print(f"  Power Consumption R-squared improvement: {checkpoint_50_r_squared_improvement:.2f}%")
     
-    print("\n检查点-100步模型:")
-    print(f"  过载状态准确率提升: {checkpoint_100_accuracy_improvement:.2f}%")
-    print(f"  过载状态召回率提升: {checkpoint_100_recall_improvement:.2f}%")
-    print(f"  过载状态精确率提升: {checkpoint_100_precision_improvement:.2f}%")
-    print(f"  过载状态F1分数提升: {checkpoint_100_f1_improvement:.2f}%")
-    print(f"  功率消耗RMSE降低: {checkpoint_100_rmse_improvement:.2f}%")
-    print(f"  功率消耗MAE降低: {checkpoint_100_mae_improvement:.2f}%")
-    print(f"  功率消耗R平方分数提升: {checkpoint_100_r_squared_improvement:.2f}%")
+    print("\nCheckpoint-100 model:")
+    print(f"  Overload Status Accuracy improvement: {checkpoint_100_accuracy_improvement:.2f}%")
+    print(f"  Overload Status Recall improvement: {checkpoint_100_recall_improvement:.2f}%")
+    print(f"  Overload Status Precision improvement: {checkpoint_100_precision_improvement:.2f}%")
+    print(f"  Overload Status F1 Score improvement: {checkpoint_100_f1_improvement:.2f}%")
+    print(f"  Power Consumption RMSE reduction: {checkpoint_100_rmse_improvement:.2f}%")
+    print(f"  Power Consumption MAE reduction: {checkpoint_100_mae_improvement:.2f}%")
+    print(f"  Power Consumption R-squared improvement: {checkpoint_100_r_squared_improvement:.2f}%")
     
-    print("\n检查点-200步模型:")
-    print(f"  过载状态准确率提升: {checkpoint_200_accuracy_improvement:.2f}%")
-    print(f"  过载状态召回率提升: {checkpoint_200_recall_improvement:.2f}%")
-    print(f"  过载状态精确率提升: {checkpoint_200_precision_improvement:.2f}%")
-    print(f"  过载状态F1分数提升: {checkpoint_200_f1_improvement:.2f}%")
-    print(f"  功率消耗RMSE降低: {checkpoint_200_rmse_improvement:.2f}%")
-    print(f"  功率消耗MAE降低: {checkpoint_200_mae_improvement:.2f}%")
-    print(f"  功率消耗R平方分数提升: {checkpoint_200_r_squared_improvement:.2f}%")
+    print("\nCheckpoint-200 model:")
+    print(f"  Overload Status Accuracy improvement: {checkpoint_200_accuracy_improvement:.2f}%")
+    print(f"  Overload Status Recall improvement: {checkpoint_200_recall_improvement:.2f}%")
+    print(f"  Overload Status Precision improvement: {checkpoint_200_precision_improvement:.2f}%")
+    print(f"  Overload Status F1 Score improvement: {checkpoint_200_f1_improvement:.2f}%")
+    print(f"  Power Consumption RMSE reduction: {checkpoint_200_rmse_improvement:.2f}%")
+    print(f"  Power Consumption MAE reduction: {checkpoint_200_mae_improvement:.2f}%")
+    print(f"  Power Consumption R-squared improvement: {checkpoint_200_r_squared_improvement:.2f}%")
     
-    print("\n检查点-300步模型:")
-    print(f"  过载状态准确率提升: {checkpoint_300_accuracy_improvement:.2f}%")
-    print(f"  过载状态召回率提升: {checkpoint_300_recall_improvement:.2f}%")
-    print(f"  过载状态精确率提升: {checkpoint_300_precision_improvement:.2f}%")
-    print(f"  过载状态F1分数提升: {checkpoint_300_f1_improvement:.2f}%")
-    print(f"  功率消耗RMSE降低: {checkpoint_300_rmse_improvement:.2f}%")
-    print(f"  功率消耗MAE降低: {checkpoint_300_mae_improvement:.2f}%")
-    print(f"  功率消耗R平方分数提升: {checkpoint_300_r_squared_improvement:.2f}%")
+    print("\nCheckpoint-300 model:")
+    print(f"  Overload Status Accuracy improvement: {checkpoint_300_accuracy_improvement:.2f}%")
+    print(f"  Overload Status Recall improvement: {checkpoint_300_recall_improvement:.2f}%")
+    print(f"  Overload Status Precision improvement: {checkpoint_300_precision_improvement:.2f}%")
+    print(f"  Overload Status F1 Score improvement: {checkpoint_300_f1_improvement:.2f}%")
+    print(f"  Power Consumption RMSE reduction: {checkpoint_300_rmse_improvement:.2f}%")
+    print(f"  Power Consumption MAE reduction: {checkpoint_300_mae_improvement:.2f}%")
+    print(f"  Power Consumption R-squared improvement: {checkpoint_300_r_squared_improvement:.2f}%")
     
-    print("\n检查点-400步模型:")
-    print(f"  过载状态准确率提升: {checkpoint_400_accuracy_improvement:.2f}%")
-    print(f"  过载状态召回率提升: {checkpoint_400_recall_improvement:.2f}%")
-    print(f"  过载状态精确率提升: {checkpoint_400_precision_improvement:.2f}%")
-    print(f"  过载状态F1分数提升: {checkpoint_400_f1_improvement:.2f}%")
-    print(f"  功率消耗RMSE降低: {checkpoint_400_rmse_improvement:.2f}%")
-    print(f"  功率消耗MAE降低: {checkpoint_400_mae_improvement:.2f}%")
-    print(f"  功率消耗R平方分数提升: {checkpoint_400_r_squared_improvement:.2f}%")
+    print("\nCheckpoint-400 model:")
+    print(f"  Overload Status Accuracy improvement: {checkpoint_400_accuracy_improvement:.2f}%")
+    print(f"  Overload Status Recall improvement: {checkpoint_400_recall_improvement:.2f}%")
+    print(f"  Overload Status Precision improvement: {checkpoint_400_precision_improvement:.2f}%")
+    print(f"  Overload Status F1 Score improvement: {checkpoint_400_f1_improvement:.2f}%")
+    print(f"  Power Consumption RMSE reduction: {checkpoint_400_rmse_improvement:.2f}%")
+    print(f"  Power Consumption MAE reduction: {checkpoint_400_mae_improvement:.2f}%")
+    print(f"  Power Consumption R-squared improvement: {checkpoint_400_r_squared_improvement:.2f}%")
     
-    # 保存评估结果
+    # Save evaluation results
     results = {
         "original_model": {
             "metrics": original_metrics,
@@ -753,7 +756,7 @@ def main():
     }
     
     with open("evaluation_results.json", "w") as f:
-        # 转换不可序列化的numpy值为Python原生类型
+        # Convert non-serializable numpy values to Python native types
         json_results = {
             "original_model": {
                 "metrics": {
@@ -836,9 +839,9 @@ def main():
         }
         json.dump(json_results, f, ensure_ascii=False, indent=2)
     
-    print("\n评估结果已保存到 evaluation_results.json")
+    print("\nEvaluation results saved to evaluation_results.json")
     
-    # 绘制评估指标柱状图
+    # Plot evaluation metrics bar charts
     plot_evaluation_metrics(original_metrics, checkpoint_50_metrics, checkpoint_100_metrics, checkpoint_200_metrics, checkpoint_300_metrics, checkpoint_400_metrics)
 
 if __name__ == "__main__":
