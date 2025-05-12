@@ -68,7 +68,9 @@ def main():
         eval_steps=50,
         save_strategy="steps",
         save_steps=50,
-        max_steps=300,
+        max_steps=400
+        
+        ,
         save_total_limit=10,
         optim="adamw_torch",
         warmup_ratio=0.1,

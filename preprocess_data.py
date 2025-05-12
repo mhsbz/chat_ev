@@ -11,12 +11,29 @@ print(f"成功读取数据，共 {len(df)} 条记录")
 # 创建提示模板
 system_prompt = "You are a smart grid security management expert, skilled in understanding and predicting grid security conditions"
 
+# prompt_template = """
+# Please determine the current overload condition and power consumption (kW) based on the following information.
+# The current weather temperature is {temperature} Celsius, and humidity is {humidity}.
+# Given the following historical charging data time series:
+# Voltage (past|current) = {voltage_past} | {voltage_current} V;
+# Current (past|current) = {current_past} | {current_current} A;
+# Power Factor (past|current) = {power_factor_past} | {power_factor_current};
+# Reactive Power (past|current) = {reactive_power_past} | {reactive_power_current} kVAR;
+# Voltage Fluctuation (past|current) = {voltage_fluctuation_past} | {voltage_fluctuation_current}%;
+# Electricity Price (past|current) = {electricity_price_past} | {electricity_price_current};
+# Overload history status = {overload_history} (0 means no, 1 means yes);
+# Transformer fault status (past|current) = {transformer_fault_past} | {transformer_fault_current} (0 means normal, 1 means faulty);
+# Power consumption in the past 1 hour = {power_consumption_past} kW.
+# Please note!
+# Your task is to determine the current overload condition (0 means no, 1 means yes) and predict power consumption (kW) by analyzing the given information and using your common sense.
+# In your answer, just provide your determination and predicted value.
+# ### Answer:
+# """
+
 prompt_template = """
 Please determine the current overload condition and power consumption (kW) based on the following information.
 The current weather temperature is {temperature} Celsius, and humidity is {humidity}.
 Given the following historical charging data time series:
-Voltage (past|current) = {voltage_past} | {voltage_current} V;
-Current (past|current) = {current_past} | {current_current} A;
 Power Factor (past|current) = {power_factor_past} | {power_factor_current};
 Reactive Power (past|current) = {reactive_power_past} | {reactive_power_current} kVAR;
 Voltage Fluctuation (past|current) = {voltage_fluctuation_past} | {voltage_fluctuation_current}%;

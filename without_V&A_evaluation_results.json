@@ -1,0 +1,52 @@
+{
+  "original_model": {
+    "metrics": {
+      "accuracy": 0.3025,
+      "precision": 0.0934,
+      "f1_score": 0.1630,
+      "rmse": 8.7968,
+      "mae": 5.4874,
+      "r_squared": -7.1823
+    }
+  },
+  "checkpoint_50": {
+    "metrics": {
+      "accuracy": 0.6417,
+      "precision": 0.0675,
+      "f1_score": 0.0940,
+      "rmse": 4.6538,
+      "mae": 3.7434,
+      "r_squared": -1.2900
+    }
+  },
+  "checkpoint_100": {
+    "metrics": {
+      "accuracy": 0.7225,
+      "precision": 0.2122,
+      "f1_score": 0.1267,
+      "rmse": 0.4837,
+      "mae": 0.3757,
+      "r_squared": 0.9752
+    }
+  },
+  "checkpoint_200": {
+    "metrics": {
+      "accuracy": 0.8427,
+      "precision": 0.2382,
+      "f1_score": 0.1776,
+      "rmse": 0.2125,
+      "mae": 0.1564,
+      "r_squared": 0.9952
+    }
+  },
+  "checkpoint_400": {
+    "metrics": {
+      "accuracy": 0.8425,
+      "precision": 0.4182,
+      "f1_score": 0.2976,
+      "rmse": 0.2161,
+      "mae": 0.1583,
+      "r_squared": 0.9950
+    }
+  }
+}
